@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StepStudio 3D — Dance Choreography Creator</title>
+    <meta name="description" content="Paste a SoundCloud or YouTube Music link, upload or record a song, and a 3D dancer choreographs and teaches you a routine in Jazz, Lyrical, Hip-Hop, Swing — or your Wedding First Dance." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💃</text></svg>" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="StepStudio 3D home">
+        <span class="brand-mark">💃</span>
+        <span class="brand-name">StepStudio <em>3D</em></span>
+      </a>
+      <input id="projectTitle" class="project-title" type="text" value="My Choreography" aria-label="Project title" maxlength="60" />
+      <nav class="top-actions">
+        <button class="btn ghost" id="btnWeddingTop" title="Wedding first dance mode">💍 Wedding mode</button>
+        <button class="btn ghost" id="btnPrint" title="Print a cue sheet">🖨️ Cue sheet</button>
+        <button class="btn ghost" id="btnExport" title="Download this project">⬇️ Export</button>
+        <label class="btn ghost" title="Open a saved project">⬆️ Import<input type="file" id="importFile" accept="application/json,.json" hidden /></label>
+      </nav>
+    </header>
+
+    <section class="wedding-hero" id="weddingHero">
+      <div class="hero-sparkles" aria-hidden="true"></div>
+      <div class="hero-copy">
+        <span class="hero-kicker">✨ Featured · Wedding First Dance</span>
+        <h1>Choreograph <em>your</em> first dance — to <em>your</em> song.</h1>
+        <p>Upload the song you’ll walk onto the dance floor to. We’ll build a beginner-friendly routine for two — gentle sways, a twirl, a reveal for your guests and a show-stopping dip — and a 3D couple will dance it with you, count by count.</p>
+        <div class="hero-actions">
+          <button class="btn gold" id="btnWeddingHero">💍 Start our first dance</button>
+          <button class="btn ghost light" id="btnHideHero">Explore other styles</button>
+        </div>
+      </div>
+      <ul class="hero-points">
+        <li><b>No experience needed</b> — every move is broken into 8 simple counts.</li>
+        <li><b>Lead &amp; follow parts</b> shown on separate dancers.</li>
+        <li><b>Print a cue sheet</b> to rehearse anywhere.</li>
+      </ul>
+    </section>
+
+    <main class="layout">
+      <!-- LEFT: setup -->
+      <aside class="panel left">
+        <section class="card" id="musicCard">
+          <h2><span class="step">1</span> Music</h2>
+          <div class="tabs" role="tablist">
+            <button role="tab" class="tab active" data-tab="link">🔗 Link</button>
+            <button role="tab" class="tab" data-tab="upload">📁 Upload</button>
+            <button role="tab" class="tab" data-tab="record">🎙️ Record</button>
+            <button role="tab" class="tab" data-tab="none">⏱️ None</button>
+          </div>
+          <div class="tab-body" data-body="link">
+            <form id="linkForm" class="row">
+              <input id="linkInput" type="url" placeholder="Paste a SoundCloud or YouTube Music link" aria-label="Music link" />
+              <button class="btn primary" type="submit">Load</button>
+            </form>
+            <p class="hint">Works with <b>soundcloud.com</b>, <b>music.youtube.com</b>, <b>youtube.com</b>, <b>youtu.be</b> and direct .mp3 links.</p>
+          </div>
+          <div class="tab-body" data-body="upload" hidden>
+            <label class="dropzone" id="dropzone">
+              <input type="file" id="fileInput" accept="audio/*,video/*" hidden />
+              <span class="dz-icon">🎵</span>
+              <span><b>Drop a song here</b> or click to choose<br /><small>MP3, WAV, M4A, OGG… we’ll auto-detect the tempo</small></span>
+            </label>
+          </div>
+          <div class="tab-body" data-body="record" hidden>
+            <div class="record-box">
+              <button class="btn record" id="btnRecord"><span class="rec-dot"></span><span id="recLabel">Start recording</span></button>
+              <span class="rec-time" id="recTime">0:00</span>
+            </div>
+            <p class="hint">Sing, play an instrument, or record the speaker. Your recording stays on this device.</p>
+          </div>
+          <div class="tab-body" data-body="none" hidden>
+            <div class="row">
+              <label class="field">Practice length <select id="clockLen"><option value="60">1:00</option><option value="120">2:00</option><option value="150" selected>2:30</option><option value="180">3:00</option><option value="240">4:00</option></select></label>
+              <button class="btn primary" id="btnClock">Use metronome</button>
+            </div>
+            <p class="hint">Practise to a click track at any tempo.</p>
+          </div>
+
+          <div id="playerHost" class="player-host"></div>
+          <p class="status" id="musicStatus" role="status">No music loaded yet — choose a source above, or press ▶ to practise with a metronome.</p>
+
+          <div class="tempo">
+            <label class="field">Tempo <span class="num-wrap"><input id="bpm" type="number" min="40" max="220" step="0.1" value="76" /> <small>BPM</small></span></label>
+            <div class="tempo-buttons">
+              <button class="btn small" id="bpmHalf" title="Half tempo">½×</button>
+              <button class="btn small" id="bpmDouble" title="Double tempo">2×</button>
+              <button class="btn small tap" id="btnTap" title="Tap on every beat, starting on a “1” (shortcut: T)">TAP</button>
+            </div>
+            <label class="field">Dance starts at <span class="num-wrap"><input id="offset" type="number" min="0" step="0.01" value="0" /> <small>sec</small></span></label>
+            <div class="tempo-buttons">
+              <button class="btn small" id="offMinus" title="Nudge earlier">−</button>
+              <button class="btn small" id="offPlus" title="Nudge later">+</button>
+              <button class="btn small" id="btnSetOne" title="Make the current moment count “1”">Set “1” now</button>
+            </div>
+            <p class="hint" id="tapHint">Tip: while the song plays, tap <b>TAP</b> on every beat starting on a strong “1” — we’ll lock in the tempo and start point.</p>
+          </div>
+        </section>
+
+        <section class="card" id="styleCard">
+          <h2><span class="step">2</span> Dance style</h2>
+          <div class="style-grid" id="styleGrid"></div>
+        </section>
+
+        <section class="card" id="dancerCard">
+          <h2><span class="step">3</span> Dancers <small id="dancerCount"></small></h2>
+          <ul class="dancer-list" id="dancerList"></ul>
+          <button class="btn add" id="btnAddDancer">＋ Add a dancer</button>
+          <div class="group-opts">
+            <label class="field">Formation <select id="formation"></select></label>
+            <label class="field">Canon / ripple <select id="canon"><option value="0">Off — in unison</option><option value="0.5">½ beat apart</option><option value="1">1 beat apart</option><option value="2">2 beats apart</option></select></label>
+            <label class="check"><input type="checkbox" id="mirrorAlt" /> Mirror every other dancer</label>
+            <label class="field">Energy <input type="range" id="energy" min="0" max="1.6" step="0.1" value="1" /></label>
+          </div>
+        </section>
+      </aside>
+
+      <!-- CENTER: stage -->
+      <section class="stage-col">
+        <div class="stage" id="stage">
+          <div class="hud top">
+            <div class="hud-chip" id="hudEight">8-count —</div>
+            <div class="view-buttons" role="group" aria-label="Camera">
+              <button class="vbtn active" data-view="front" title="Watch from the audience">Front</button>
+              <button class="vbtn" data-view="back" title="Stand behind the dancers and copy them">Follow</button>
+              <button class="vbtn" data-view="side">Side</button>
+              <button class="vbtn" data-view="top" title="See the formation from above">Top</button>
+              <button class="vbtn" id="btnMirror" title="Flip left/right like a studio mirror">⇋ Mirror</button>
+            </div>
+          </div>
+          <div class="count-display" id="countDisplay" aria-live="off">
+            <div class="count-num" id="countNum">5</div>
+            <div class="count-dots" id="countDots"></div>
+          </div>
+          <div class="hud bottom">
+            <div class="cue-now"><span class="cue-move" id="cueMove">Press play</span><span class="cue-text" id="cueText">Load a song or press ▶ to practise with a metronome</span></div>
+            <div class="cue-next" id="cueNext"></div>
+          </div>
+          <div class="stage-loading" id="stageLoading">Setting the stage…</div>
+        </div>
+        <div class="transport">
+          <button class="btn round play" id="btnPlay" aria-label="Play">▶</button>
+          <button class="btn round" id="btnRestart" aria-label="Back to start" title="Back to start">⏮</button>
+          <button class="btn round" id="btnPrev" aria-label="Previous 8-count" title="Previous 8-count (←)">⏪</button>
+          <button class="btn round" id="btnNext" aria-label="Next 8-count" title="Next 8-count (→)">⏩</button>
+          <div class="scrub">
+            <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Song position" />
+            <span class="time" id="timeLabel">0:00 / 0:00</span>
+          </div>
+          <label class="field inline">Speed
+            <select id="speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option></select>
+          </label>
+          <button class="btn toggle" id="btnLoop" title="Repeat the current 8-count">🔁 Loop 8</button>
+          <button class="btn toggle" id="btnMetro" title="Metronome click">🥁 Click</button>
+        </div>
+      </section>
+
+      <!-- RIGHT: teaching -->
+      <aside class="panel right">
+        <section class="card now-card">
+          <h2>Now dancing</h2>
+          <div class="now-head">
+            <span class="now-name" id="nowName">—</span>
+            <span class="badge" id="nowLevel"></span>
+          </div>
+          <p class="now-desc" id="nowDesc">Pick a style and press play.</p>
+          <ol class="cue-list" id="cueList"></ol>
+          <div class="up-next"><span>Up next</span> <b id="upNext">—</b></div>
+        </section>
+
+        <section class="card wedding-planner" id="weddingPlanner" hidden>
+          <h2>💍 First dance planner</h2>
+          <div class="couple-names">
+            <label class="field">Lead <input id="nameLead" type="text" maxlength="18" value="Partner A" /></label>
+            <span class="heart">♥</span>
+            <label class="field">Follow <input id="nameFollow" type="text" maxlength="18" value="Partner B" /></label>
+          </div>
+          <label class="field">Dance length
+            <select id="trim"><option value="0">Whole song</option><option value="90">1:30</option><option value="120">2:00</option><option value="150" selected>2:30</option><option value="180">3:00</option></select>
+          </label>
+          <label class="field">Grand finale
+            <select id="finale"><option value="dip">Dramatic dip</option><option value="spin-kiss">Twirl &amp; kiss</option></select>
+          </label>
+          <h3>Rehearsal checklist</h3>
+          <ul class="checklist" id="checklist"></ul>
+        </section>
+
+        <section class="card tips-card">
+          <h2 id="tipsTitle">Style tips</h2>
+          <ul class="tips" id="tips"></ul>
+        </section>
+      </aside>
+    </main>
+
+    <section class="timeline-wrap">
+      <div class="timeline-head">
+        <h2>Choreography timeline <small id="timelineMeta"></small></h2>
+        <div class="timeline-actions">
+          <button class="btn small" id="btnShuffle" title="Generate a fresh routine (keeps moves you picked by hand)">🎲 Remix</button>
+          <button class="btn small" id="btnReset" title="Regenerate everything, including hand-picked moves">↺ Start over</button>
+        </div>
+      </div>
+      <p class="hint">Each card is one 8-count. Click to jump there; use <b>Change</b> to swap in a different move. Hand-picked moves get a 📌 and survive remixes.</p>
+      <div class="timeline" id="timeline"></div>
+    </section>
+
+    <footer class="footer">
+      StepStudio 3D · Dance safely — warm up, clear the floor, and practise dips on a soft surface first.
+    </footer>
+
+    <dialog id="movePicker" class="move-picker">
+      <form method="dialog">
+        <header>
+          <h3 id="pickerTitle">Choose a move</h3>
+          <label class="check"><input type="checkbox" id="pickerAll" /> Show all styles</label>
+          <button class="btn small" value="cancel">✕</button>
+        </header>
+        <div class="move-grid" id="moveGrid"></div>
+      </form>
+    </dialog>
+
+    <div id="printSheet" class="print-sheet" aria-hidden="true"></div>
+    <div id="toast" class="toast" role="status"></div>
+
+    <noscript><p class="noscript">StepStudio 3D needs JavaScript to run.</p></noscript>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
