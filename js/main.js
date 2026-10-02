@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Dancer, SKIN_TONES } from './rig.js';
 import { STYLES, STYLE_ORDER, MOVES, generateChoreo } from './moves.js';
 import { evaluate, FORMATIONS } from './engine.js';
-import { parseMusicLink, FileSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
+import { parseMusicLink, audioContext, FileSource, BufferSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const D2R = Math.PI / 180;
 const PALETTE = ['#e24d7a', '#8a5cf6', '#38bdf8', '#f59e0b', '#22c55e', '#f472b6', '#14b8a6', '#ef4444'];
-const WEDDING_COLORS = { lead: '#26345e', follow: '#f6efe3' };
+const WEDDING_COLORS = { lead: '#1f3b8a', follow: '#f6efe3' };
 const STORE_KEY = 'stepstudio.project.v1';
 const HERO_KEY = 'stepstudio.heroHidden';
 const MAX_DANCERS = 8;
@@ -150,6 +151,9 @@ stageEl.prepend(renderer.domElement);
 $('#stageLoading').remove();
 
 const scene = new THREE.Scene();
+// soft studio reflections so skin, satin and wool read as real materials
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 const bg = new THREE.Color('#0d0a16');
 scene.background = bg;
 scene.fog = new THREE.Fog(bg, 11, 26);
@@ -164,7 +168,7 @@ controls.minDistance = 1.8;
 controls.maxDistance = 20;
 controls.enablePan = false;
 
-const hemi = new THREE.HemisphereLight('#c9c0ff', '#2a1d33', 0.85);
+const hemi = new THREE.HemisphereLight('#c9c0ff', '#2a1d33', 0.45);
 scene.add(hemi);
 const key = new THREE.DirectionalLight('#fff1e0', 2.2);
 key.position.set(3, 7, 5);
@@ -180,7 +184,7 @@ const fill = new THREE.PointLight('#8a5cf6', 18, 14);
 fill.position.set(-4, 2.5, 3);
 scene.add(fill);
 
-const floorMat = new THREE.MeshStandardMaterial({ color: '#1c1628', roughness: 0.32, metalness: 0.25 });
+const floorMat = new THREE.MeshStandardMaterial({ color: '#1c1628', roughness: 0.38, metalness: 0.1, envMapIntensity: 0.25 });
 const floor = new THREE.Mesh(new THREE.CircleGeometry(40, 96), floorMat);
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
@@ -284,14 +288,14 @@ $('#btnMirror').addEventListener('click', (e) => {
 let rigs = [];
 function syncRigs() {
   project.dancers.forEach((d, i) => {
-    const k = [d.color, d.outfit, d.skin].join('|');
+    const k = [d.color, d.outfit, d.skin, i].join('|');
     let r = rigs[i];
     if (!r || r.key !== k) {
       if (r) {
         stageGroup.remove(r.dancer.root);
         r.dancer.dispose();
       }
-      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin] }) };
+      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i }) };
       stageGroup.add(r.dancer.root);
     } else if (r.name !== d.name) {
       r.dancer.setLabel(d.name, d.color);
@@ -339,29 +343,42 @@ function clearPlayerHost() {
 }
 
 async function loadFile(file, label = file.name) {
+  audioContext(); // unlock audio while we're still inside the user's click/drop
   clearPlayerHost();
+  const bytes = await file.arrayBuffer();
   const url = URL.createObjectURL(file);
-  const src = new FileSource(url, $('#playerHost'), label);
+  let src = new FileSource(url, $('#playerHost'), label);
   setSource(src);
+  // If this page isn't allowed to stream the file into an <audio> element, play it through Web Audio instead.
+  src.on('error', () => {
+    if (source !== src) return;
+    clearPlayerHost();
+    src = new BufferSource(bytes.slice(0), label);
+    setSource(src);
+    setStatus(`🎵 “${label}” is ready — press ▶ to dance.`, 'ok');
+  });
   project.music = { kind: 'file', name: label };
   setMetronome(false);
   save();
   setStatus(`Analysing “${label}” for tempo…`);
   try {
-    const r = await analyzeTempo(await file.arrayBuffer(), (m) => setStatus(m));
-    if (source !== src) return;
+    const r = await analyzeTempo(bytes.slice(0), (m) => setStatus(m));
+    if (!(source instanceof FileSource || source instanceof BufferSource) || source.label !== label) return;
     project.bpm = r.bpm;
     project.offset = r.offset;
     project.duration = r.duration;
     reflectTempo();
     rebuildCounts();
-    setStatus(`🎵 “${label}” · detected ${r.bpm} BPM, first beat at ${r.offset.toFixed(2)}s. Not quite right? Try ½× / 2× or TAP along.`, 'ok');
+    setStatus(`🎵 “${label}” · detected ${r.bpm} BPM, first beat at ${r.offset.toFixed(2)}s. Press ▶ to dance. Not quite right? Try ½× / 2× or TAP along.`, 'ok');
     toast(`Choreographed ${project.counts.length} eight-counts to your song!`);
   } catch (e) {
     console.warn(e);
     setStatus(`Loaded “${label}”. We couldn’t detect the tempo automatically — press play and tap TAP on each beat.`, 'err');
   }
 }
+
+const STREAM_BLOCKED =
+  'This link couldn’t load here. Streaming players (YouTube / SoundCloud) can be blocked when the app runs inside a preview or private page — upload the song file instead (📁 Upload), or open the app from its own web address.';
 
 function loadLink(raw, { quiet = false } = {}) {
   const info = parseMusicLink(raw);
@@ -372,14 +389,21 @@ function loadLink(raw, { quiet = false } = {}) {
   clearPlayerHost();
   const host = $('#playerHost');
   setMetronome(false);
+  const watchdog = (src) => {
+    src.on('error', () => source === src && setStatus(STREAM_BLOCKED, 'err'));
+    setTimeout(() => {
+      if (source === src && !src.ready) setStatus(STREAM_BLOCKED, 'err');
+    }, 10000);
+    return src;
+  };
   if (info.type === 'youtube') {
-    setSource(new YouTubeSource(info.id, host));
+    setSource(watchdog(new YouTubeSource(info.id, host)));
     setStatus(`${info.music ? 'YouTube Music' : 'YouTube'} track loaded. Press ▶, then tap TAP on every beat starting on a “1” to sync the dancers.`, 'ok');
   } else if (info.type === 'soundcloud') {
-    setSource(new SoundCloudSource(info.url, host));
+    setSource(watchdog(new SoundCloudSource(info.url, host)));
     setStatus('SoundCloud track loaded. Press ▶, then tap TAP on every beat starting on a “1” to sync the dancers.', 'ok');
   } else {
-    const src = new FileSource(info.url, host, 'Audio link');
+    const src = watchdog(new FileSource(info.url, host, 'Audio link'));
     setSource(src);
     setStatus('Audio link loaded — trying to detect tempo…');
     fetch(info.url)
@@ -425,10 +449,10 @@ function ensureSource() {
 }
 
 // metronome click
-let actx;
 function click(accent) {
   try {
-    actx ||= new (window.AudioContext || window.webkitAudioContext)();
+    const actx = audioContext();
+    if (!actx || actx.state !== 'running') return;
     const o = actx.createOscillator();
     const g = actx.createGain();
     o.frequency.value = accent ? 1660 : 1100;
@@ -453,8 +477,8 @@ function updatePlayBtn(playing) {
   b.setAttribute('aria-label', playing ? 'Pause' : 'Play');
 }
 function togglePlay() {
+  audioContext(); // browsers only allow sound to start from a click/tap/key press
   ensureSource();
-  if (actx && actx.state === 'suspended') actx.resume();
   if (source.playing) source.pause();
   else source.play();
 }
@@ -477,6 +501,7 @@ function setLoop(on, idx = curEight()) {
 }
 
 $('#btnPlay').addEventListener('click', togglePlay);
+['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, () => audioContext(), { passive: true }));
 $('#btnRestart').addEventListener('click', () => seek(0));
 $('#btnPrev').addEventListener('click', () => seekEight(curEight() - (((curTime() - eightStart(curEight())) < 1) ? 1 : 0)));
 $('#btnNext').addEventListener('click', () => seekEight(curEight() + 1));
@@ -1181,5 +1206,7 @@ window.stepstudio = {
   },
   setStyle,
   seekBeat: (b) => seek(project.offset + b * beatLen()),
+  camera,
+  controls,
   setView
 };

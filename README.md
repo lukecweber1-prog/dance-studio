@@ -43,10 +43,10 @@ Any static host works, e.g. GitHub Pages or Netlify. Three.js is loaded from the
 
 | File            | What it does                                                                                     |
 | --------------- | ------------------------------------------------------------------------------------------------ |
-| `js/rig.js`     | Procedural articulated dancer, pose format, forward kinematics, automatic foot planting          |
+| `js/rig.js`     | Procedural human dancer: skeleton + smooth skinned body and clothes, face, hair, hands, a cloth-like skirt; pose format, forward kinematics, automatic foot planting |
 | `js/moves.js`   | Move library (keyframed 8-counts, partner tracks), style definitions, routine generator          |
 | `js/engine.js`  | Turns song beat + project into per-dancer poses: easing per style, groove layer, formations, canon, couples, blending between moves |
-| `js/audio.js`   | Music sources (YouTube, SoundCloud, file, clock), microphone recorder, tempo and downbeat detection |
+| `js/audio.js`   | Music sources (YouTube, SoundCloud, file, Web Audio fallback, clock), microphone recorder, tempo and downbeat detection |
 | `js/main.js`    | Three.js stage, UI, timeline, wedding planner, persistence                                       |
 
 ### Adding a move
@@ -67,5 +67,6 @@ Partner moves provide `lead` and `follow` tracks instead of `keys`.
 ## Notes
 
 - Some tracks are blocked from embedding by their owners (YouTube error 101/150). The app suggests uploading the file instead.
+- Inside sandboxed previews the YouTube/SoundCloud players may be blocked entirely; the app says so after a few seconds. Uploaded songs still play (through Web Audio if the page can't use an `<audio>` element).
 - Tempo can't be auto-detected for streamed tracks because browsers don't give pages access to that audio. Use TAP for those.
 - SoundCloud's widget doesn't support playback speed, so the speed control only works with YouTube, uploads and the metronome.

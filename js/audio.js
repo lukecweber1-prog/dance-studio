@@ -14,6 +14,15 @@ const loadScript = (() => {
     }));
 })();
 
+/** One shared AudioContext for playback and the metronome; call from a click/tap so it is allowed to start. */
+let sharedCtx = null;
+export function audioContext() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!sharedCtx && AC) sharedCtx = new AC();
+  if (sharedCtx && sharedCtx.state === 'suspended') sharedCtx.resume().catch(() => {});
+  return sharedCtx;
+}
+
 /** Figure out what kind of link the user pasted. */
 export function parseMusicLink(raw) {
   const url = raw.trim();
@@ -106,6 +115,97 @@ export class FileSource extends BaseSource {
   destroy() {
     this.audio.pause();
     this.audio.remove();
+  }
+}
+
+/**
+ * Plays decoded audio through Web Audio. Used when the page isn't allowed to stream a local file
+ * into an <audio> element (some embedded/sandboxed hosts block that), and it keeps tight beat sync.
+ */
+export class BufferSource extends BaseSource {
+  constructor(arrayBuffer, label) {
+    super();
+    this.label = label;
+    this.rate = 1;
+    this.offset = 0;
+    this._playing = false;
+    this.ctx = audioContext();
+    this.ctx
+      .decodeAudioData(arrayBuffer)
+      .then((buf) => {
+        this.buffer = buf;
+        this.duration = buf.duration;
+        this.ready = true;
+        this.emit('ready');
+      })
+      .catch(() => this.emit('error', 'This audio file could not be decoded by your browser. Try an MP3 or WAV.'));
+  }
+  get canSetRate() {
+    return true;
+  }
+  _start() {
+    const node = this.ctx.createBufferSource();
+    node.buffer = this.buffer;
+    node.playbackRate.value = this.rate;
+    node.connect(this.ctx.destination);
+    node.onended = () => {
+      if (this.node === node && this._playing) {
+        this._playing = false;
+        this.offset = this.duration;
+        this.emit('state', false);
+      }
+    };
+    node.start(0, Math.min(this.offset, Math.max(0, this.duration - 0.01)));
+    this.node = node;
+    this.startedAt = this.ctx.currentTime;
+  }
+  _stop() {
+    if (!this.node) return;
+    const n = this.node;
+    this.node = null;
+    try {
+      n.stop();
+    } catch {}
+  }
+  play() {
+    if (!this.buffer || this._playing) return;
+    if (this.offset >= this.duration - 0.05) this.offset = 0;
+    audioContext();
+    this._start();
+    this._playing = true;
+    this.emit('state', true);
+  }
+  pause() {
+    if (!this._playing) return;
+    this.offset = this.time();
+    this._playing = false;
+    this._stop();
+    this.emit('state', false);
+  }
+  get playing() {
+    return this._playing;
+  }
+  time() {
+    if (!this._playing) return this.offset;
+    return Math.min(this.duration, this.offset + (this.ctx.currentTime - this.startedAt) * this.rate);
+  }
+  seek(t) {
+    const was = this._playing;
+    if (was) this._stop();
+    this.offset = Math.max(0, Math.min(this.duration || 0, t));
+    if (was) this._start();
+  }
+  setRate(r) {
+    if (this._playing) {
+      this.offset = this.time();
+      this._stop();
+      this.rate = r;
+      this._start();
+    } else this.rate = r;
+  }
+  destroy() {
+    this._playing = false;
+    this._stop();
   }
 }
 

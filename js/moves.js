@@ -23,9 +23,9 @@ const A = {
   point: [150, 25, 0, 0],
   back: [35, -80, 0, 10],
   // partner holds
-  frameHand: [72, 38, 0, 70], // raised joined hand in closed position
-  frameBack: [64, 70, -90, 78], // lead's right hand on follow's back
-  onShoulder: [92, 75, 0, 38], // follow's left hand on lead's shoulder
+  frameHand: [28, -15, 0, 112], // joined hands held between the partners at chest height
+  frameBack: [55, 105, -30, 25], // lead's right hand on follow's back
+  onShoulder: [55, 85, 0, 75], // follow's left hand on lead's shoulder
   lowHold: [42, 55, 0, 22],
   turnHand: [150, 40, 0, 25]
 };
@@ -761,8 +761,8 @@ const wedding = [
       k(0, { ...closed.lead }),
       k(2, { ...closed.lead, root: { z: -0.05 }, spine: [0, 0, 4] }),
       k(3, { ...closed.lead, rArm: [55, 75, -90, 60], squat: 10 }),
-      k(4.5, { lArm: [95, 30, 0, 20], rArm: [55, 80, -90, 55], rLeg: L.lunge, lLeg: L.lungeBack, spine: [20, 0, 0], head: [15, 0, 0], root: { x: 0.12 } }),
-      k(8, { lArm: [100, 30, 0, 15], rArm: [55, 80, -90, 55], rLeg: L.lunge, lLeg: L.lungeBack, spine: [22, 0, 0], head: [18, 0, 0], root: { x: 0.12 } })
+      k(4.5, { lArm: [95, 30, 0, 20], rArm: [55, 80, -90, 55], rLeg: L.lunge, lLeg: L.lungeBack, spine: [20, 0, 0], head: [15, 0, 0], root: { x: -0.08, z: 0.06 } }),
+      k(8, { lArm: [100, 30, 0, 15], rArm: [55, 80, -90, 55], rLeg: L.lunge, lLeg: L.lungeBack, spine: [22, 0, 0], head: [18, 0, 0], root: { x: -0.08, z: 0.06 } })
     ],
     follow: [
       k(0, { ...closed.follow }),
