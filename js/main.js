@@ -389,15 +389,15 @@ function loadLink(raw, { quiet = false } = {}) {
   clearPlayerHost();
   const host = $('#playerHost');
   setMetronome(false);
-  const watchdog = (src) => {
+  const watchdog = (src, ms = 10000) => {
     src.on('error', () => source === src && setStatus(STREAM_BLOCKED, 'err'));
     setTimeout(() => {
       if (source === src && !src.ready) setStatus(STREAM_BLOCKED, 'err');
-    }, 10000);
+    }, ms);
     return src;
   };
   if (info.type === 'youtube') {
-    setSource(watchdog(new YouTubeSource(info.id, host)));
+    setSource(watchdog(new YouTubeSource(info.id, host), 16000));
     setStatus(`${info.music ? 'YouTube Music' : 'YouTube'} track loaded. Press ▶, then tap TAP on every beat starting on a “1” to sync the dancers.`, 'ok');
   } else if (info.type === 'soundcloud') {
     setSource(watchdog(new SoundCloudSource(info.url, host)));
