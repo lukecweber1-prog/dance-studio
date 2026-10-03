@@ -113,7 +113,7 @@ function rotXZ(x, z, deg) {
   return [x * c + z * s, -x * s + z * c];
 }
 
-export const COUPLE_HALF_GAP = 0.38;
+export const COUPLE_HALF_GAP = 0.22;
 
 /**
  * Compute transforms + poses for all dancers when every dancer performs `moveId`

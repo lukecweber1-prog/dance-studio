@@ -14,6 +14,15 @@ const loadScript = (() => {
     }));
 })();
 
+/** One shared AudioContext for playback and the metronome; call from a click/tap so it is allowed to start. */
+let sharedCtx = null;
+export function audioContext() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!sharedCtx && AC) sharedCtx = new AC();
+  if (sharedCtx && sharedCtx.state === 'suspended') sharedCtx.resume().catch(() => {});
+  return sharedCtx;
+}
+
 /** Figure out what kind of link the user pasted. */
 export function parseMusicLink(raw) {
   const url = raw.trim();
@@ -109,74 +118,270 @@ export class FileSource extends BaseSource {
   }
 }
 
-/** YouTube & YouTube Music via the IFrame Player API. */
-export class YouTubeSource extends BaseSource {
-  constructor(videoId, host) {
+/**
+ * Plays decoded audio through Web Audio. Used when the page isn't allowed to stream a local file
+ * into an <audio> element (some embedded/sandboxed hosts block that), and it keeps tight beat sync.
+ */
+export class BufferSource extends BaseSource {
+  constructor(arrayBuffer, label) {
     super();
-    this.label = 'YouTube';
-    const div = document.createElement('div');
-    div.className = 'embed-frame';
-    const inner = document.createElement('div');
-    div.appendChild(inner);
-    host.appendChild(div);
-    this.el = div;
+    this.label = label;
+    this.rate = 1;
+    this.offset = 0;
     this._playing = false;
-    const boot = () => {
-      this.player = new window.YT.Player(inner, {
-        videoId,
-        width: '100%',
-        height: '100%',
-        playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
-        events: {
-          onReady: () => {
-            this.duration = this.player.getDuration();
-            this.ready = true;
-            this.emit('ready');
-          },
-          onStateChange: (e) => {
-            this._playing = e.data === 1;
-            if (e.data === 1 && !this.duration) this.duration = this.player.getDuration();
-            this.emit('state', this._playing);
-          },
-          onError: (e) => {
-            const msg = e.data === 101 || e.data === 150 ? 'The owner of this track doesn’t allow it to be embedded. Try uploading the song file instead.' : 'YouTube could not play this video.';
-            this.emit('error', msg);
-          }
-        }
-      });
-    };
-    if (window.YT && window.YT.Player) boot();
-    else {
-      const prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        prev && prev();
-        boot();
-      };
-      loadScript('https://www.youtube.com/iframe_api').catch((e) => this.emit('error', e.message));
-    }
+    this.ctx = audioContext();
+    this.ctx
+      .decodeAudioData(arrayBuffer)
+      .then((buf) => {
+        this.buffer = buf;
+        this.duration = buf.duration;
+        this.ready = true;
+        this.emit('ready');
+      })
+      .catch(() => this.emit('error', 'This audio file could not be decoded by your browser. Try an MP3 or WAV.'));
   }
   get canSetRate() {
     return true;
   }
+  _start() {
+    const node = this.ctx.createBufferSource();
+    node.buffer = this.buffer;
+    node.playbackRate.value = this.rate;
+    node.connect(this.ctx.destination);
+    node.onended = () => {
+      if (this.node === node && this._playing) {
+        this._playing = false;
+        this.offset = this.duration;
+        this.emit('state', false);
+      }
+    };
+    node.start(0, Math.min(this.offset, Math.max(0, this.duration - 0.01)));
+    this.node = node;
+    this.startedAt = this.ctx.currentTime;
+  }
+  _stop() {
+    if (!this.node) return;
+    const n = this.node;
+    this.node = null;
+    try {
+      n.stop();
+    } catch {}
+  }
   play() {
-    this.player?.playVideo();
+    if (!this.buffer || this._playing) return;
+    if (this.offset >= this.duration - 0.05) this.offset = 0;
+    audioContext();
+    this._start();
+    this._playing = true;
+    this.emit('state', true);
   }
   pause() {
-    this.player?.pauseVideo();
+    if (!this._playing) return;
+    this.offset = this.time();
+    this._playing = false;
+    this._stop();
+    this.emit('state', false);
   }
   get playing() {
     return this._playing;
   }
   time() {
-    return this.player?.getCurrentTime ? this.player.getCurrentTime() : 0;
+    if (!this._playing) return this.offset;
+    return Math.min(this.duration, this.offset + (this.ctx.currentTime - this.startedAt) * this.rate);
   }
   seek(t) {
-    this.player?.seekTo(Math.max(0, t), true);
+    const was = this._playing;
+    if (was) this._stop();
+    this.offset = Math.max(0, Math.min(this.duration || 0, t));
+    if (was) this._start();
   }
   setRate(r) {
-    this.player?.setPlaybackRate?.(r);
+    if (this._playing) {
+      this.offset = this.time();
+      this._stop();
+      this.rate = r;
+      this._start();
+    } else this.rate = r;
   }
   destroy() {
+    this._playing = false;
+    this._stop();
+  }
+}
+
+const YT_ERRORS = {
+  2: 'That YouTube link has an invalid video ID.',
+  5: 'YouTube couldn’t play this video in the embedded player.',
+  100: 'That YouTube video was removed or is private.',
+  101: 'The owner of this track doesn’t allow it to be embedded. Try uploading the song file instead.',
+  150: 'The owner of this track doesn’t allow it to be embedded. Try uploading the song file instead.'
+};
+const YT_PLAYING = 1;
+
+/**
+ * YouTube & YouTube Music.
+ * Normally driven by the official IFrame Player API (youtube.com/iframe_api). Some hosts — e.g. sandboxed
+ * previews — block that script, so if it can't load we embed the player iframe directly and drive it with
+ * the same postMessage protocol the API uses under the hood (enablejsapi=1).
+ */
+export class YouTubeSource extends BaseSource {
+  constructor(videoId, host) {
+    super();
+    this.label = 'YouTube';
+    this.videoId = videoId;
+    const div = document.createElement('div');
+    div.className = 'embed-frame';
+    host.appendChild(div);
+    this.el = div;
+    this._playing = false;
+    this.pos = 0;
+    this.stamp = performance.now();
+    this.rate = 1;
+    if (window.YT && window.YT.Player) this._bootApi();
+    else {
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        prev && prev();
+        if (!this.raw && !this.dead) this._bootApi();
+      };
+      loadScript('https://www.youtube.com/iframe_api').catch(() => !this.dead && this._bootRaw());
+      // a script that never answers (blocked silently) also falls back
+      this._apiTimer = setTimeout(() => !this.player && !this.raw && !this.dead && this._bootRaw(), 6000);
+    }
+  }
+
+  _bootApi() {
+    clearTimeout(this._apiTimer);
+    const inner = document.createElement('div');
+    this.el.appendChild(inner);
+    this.player = new window.YT.Player(inner, {
+      videoId: this.videoId,
+      width: '100%',
+      height: '100%',
+      playerVars: { playsinline: 1, rel: 0, modestbranding: 1 },
+      events: {
+        onReady: () => {
+          this.duration = this.player.getDuration();
+          this._ready();
+        },
+        onStateChange: (e) => this._state(e.data),
+        onError: (e) => this.emit('error', YT_ERRORS[e.data] || 'YouTube could not play this video.')
+      }
+    });
+  }
+
+  _bootRaw() {
+    this.raw = true;
+    const iframe = document.createElement('iframe');
+    const origin = location.origin && location.origin !== 'null' ? `&origin=${encodeURIComponent(location.origin)}` : '';
+    iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(this.videoId)}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1${origin}`;
+    iframe.allow = 'autoplay; encrypted-media';
+    iframe.title = 'YouTube player';
+    iframe.style.cssText = 'width:100%;height:100%;border:0';
+    this.el.appendChild(iframe);
+    this.iframe = iframe;
+    this._onMsg = (e) => {
+      if (e.source !== iframe.contentWindow) return;
+      let d;
+      try {
+        d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      } catch {
+        return;
+      }
+      if (!d || !d.event) return;
+      if (d.event === 'onReady') this._ready();
+      else if (d.event === 'onStateChange') this._state(d.info);
+      else if (d.event === 'onError') this.emit('error', YT_ERRORS[d.info] || 'YouTube could not play this video.');
+      else if (d.event === 'infoDelivery' && d.info) {
+        const i = d.info;
+        if (typeof i.duration === 'number' && i.duration > 0 && !this.duration) {
+          this.duration = i.duration;
+          if (this.ready) this.emit('ready');
+        }
+        if (typeof i.currentTime === 'number') {
+          this.pos = i.currentTime;
+          this.stamp = performance.now();
+        }
+        if (typeof i.playerState === 'number') this._state(i.playerState);
+        if (!this.ready && (i.duration || i.playerState !== undefined)) this._ready();
+      }
+    };
+    window.addEventListener('message', this._onMsg);
+    // keep saying hello until the player starts talking back
+    const hello = () => {
+      this._post({ event: 'listening', id: 'stepstudio', channel: 'widget' });
+      for (const ev of ['onReady', 'onStateChange', 'onError']) this._cmd('addEventListener', [ev]);
+    };
+    iframe.addEventListener('load', hello);
+    this._hello = setInterval(() => (this.ready ? clearInterval(this._hello) : hello()), 500);
+  }
+
+  _post(msg) {
+    try {
+      this.iframe?.contentWindow?.postMessage(JSON.stringify(msg), 'https://www.youtube.com');
+    } catch {}
+  }
+  _cmd(func, args = []) {
+    this._post({ event: 'command', func, args, id: 'stepstudio', channel: 'widget' });
+  }
+  _ready() {
+    if (this.ready) return;
+    this.ready = true;
+    clearInterval(this._hello);
+    this.emit('ready');
+  }
+  _state(code) {
+    const playing = code === YT_PLAYING;
+    if (this.player && playing && !this.duration) this.duration = this.player.getDuration();
+    if (playing === this._playing) return;
+    if (this.raw) {
+      this.pos = this.time();
+      this.stamp = performance.now();
+    }
+    this._playing = playing;
+    this.emit('state', playing);
+  }
+
+  get canSetRate() {
+    return true;
+  }
+  play() {
+    if (this.raw) this._cmd('playVideo');
+    else this.player?.playVideo?.();
+  }
+  pause() {
+    if (this.raw) this._cmd('pauseVideo');
+    else this.player?.pauseVideo?.();
+  }
+  get playing() {
+    return this._playing;
+  }
+  time() {
+    if (!this.raw) return this.player?.getCurrentTime ? this.player.getCurrentTime() : 0;
+    // the iframe reports its position a few times a second; interpolate in between for smooth dancing
+    return this._playing ? this.pos + ((performance.now() - this.stamp) / 1000) * this.rate : this.pos;
+  }
+  seek(t) {
+    t = Math.max(0, t);
+    if (this.raw) {
+      this.pos = t;
+      this.stamp = performance.now();
+      this._cmd('seekTo', [t, true]);
+    } else this.player?.seekTo?.(t, true);
+  }
+  setRate(r) {
+    if (this.raw) {
+      this.pos = this.time();
+      this.stamp = performance.now();
+      this.rate = r;
+      this._cmd('setPlaybackRate', [r]);
+    } else this.player?.setPlaybackRate?.(r);
+  }
+  destroy() {
+    this.dead = true;
+    clearTimeout(this._apiTimer);
+    clearInterval(this._hello);
+    if (this._onMsg) window.removeEventListener('message', this._onMsg);
     try {
       this.player?.destroy();
     } catch {}

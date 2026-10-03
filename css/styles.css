@@ -553,6 +553,81 @@ input[type='range'] {
   border-radius: 99px;
 }
 
+/* difficulty bar */
+.difficulty {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+.diff-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.diff-head b {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  color: var(--gold);
+}
+#difficulty {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--ok), var(--gold) 50%, #ff6b8b) 0 0 / var(--fill, 25%) 100% no-repeat, var(--bg-2);
+  outline: none;
+}
+#difficulty::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ivory);
+  border: 3px solid var(--gold-2);
+  cursor: pointer;
+}
+#difficulty::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ivory);
+  border: 3px solid var(--gold-2);
+  cursor: pointer;
+}
+.diff-ticks {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin-top: 0.4rem;
+}
+.diff-ticks button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 600;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 0;
+}
+.diff-ticks i {
+  width: 4px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.diff-ticks button.on i {
+  background: var(--gold);
+}
+.diff-ticks button.on span {
+  color: var(--text);
+}
+
 /* dancers */
 .dancer-list {
   list-style: none;
@@ -601,6 +676,19 @@ input[type='range'] {
   padding: 0.2rem 0.35rem;
   font-size: 0.75rem;
   border-radius: 7px;
+}
+.role-tag {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--panel-2);
+  color: var(--gold);
+}
+.role-tag.follow {
+  color: #ffd6e2;
 }
 .dancer .remove {
   border: none;
@@ -816,13 +904,39 @@ input[type='range'] {
   color: var(--muted);
   white-space: nowrap;
 }
-.badge.Beginner {
+/* difficulty badges: name + ticks */
+.badge.lvl {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.badge .ticks {
+  display: inline-flex;
+  gap: 2px;
+}
+.badge .ticks i {
+  width: 5px;
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.badge.l1,
+.badge.l2 {
   color: var(--ok);
 }
-.badge.Intermediate {
+.badge.l3 {
   color: var(--gold);
 }
-.badge.Advanced {
+.badge.l4 {
+  color: #ff9f6b;
+}
+.badge.l5 {
+  color: #ff6b8b;
+}
+.badge .ticks i.on {
+  background: currentColor;
+}
+.badge.warn {
   color: #ff8b9a;
 }
 .now-desc {

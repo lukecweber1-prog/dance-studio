@@ -1,18 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Dancer, SKIN_TONES, HAIR_STYLES, defaultHair } from './rig.js';
-import { STYLES, STYLE_ORDER, MOVES, generateChoreo } from './moves.js';
-import { evaluate, FORMATIONS } from './engine.js';
-import { parseMusicLink, FileSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Dancer, SKIN_TONES } from './rig.js';
+import { STYLES, STYLE_ORDER, MOVES, LEVELS, generateChoreo, defaultFinale } from './moves.js';
+import { evaluate } from './engine.js';
+import { parseMusicLink, audioContext, FileSource, BufferSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const D2R = Math.PI / 180;
-const PALETTE = ['#e24d7a', '#8a5cf6', '#38bdf8', '#f59e0b', '#22c55e', '#f472b6', '#14b8a6', '#ef4444'];
-const WEDDING_COLORS = { lead: '#2c2c31', follow: '#7e5a4e' };
+const WEDDING_COLORS = { lead: '#1f3b8a', follow: '#f6efe3' };
 const STORE_KEY = 'stepstudio.project.v1';
 const HERO_KEY = 'stepstudio.heroHidden';
-const MAX_DANCERS = 8;
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = (s) => {
   s = Math.max(0, s || 0);
@@ -22,9 +21,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 const WEDDING_CHECKLIST = [
   'Choose your song & decide where to fade it',
-  'Learn the Slow Sway and Box Step',
-  'Practise the Underarm Spin 10× in a row',
-  'Rehearse the finale on a soft surface',
+  'Learn the basic step until it feels automatic',
+  'Practise every turn 10× in a row',
+  'Rehearse lifts & the finale on a soft surface (with a spotter)',
   'Full run-through in your wedding shoes',
   'Tell the DJ/band your start and fade cue',
   'Final rehearsal — breathe, look at each other, smile'
@@ -49,9 +48,7 @@ function defaultProject() {
     duration: 150,
     seed: 20261002,
     dancers: weddingDancers(),
-    formation: 'line',
-    canon: 0,
-    mirrorAlt: false,
+    difficulty: 2,
     energy: 1,
     music: { kind: 'none' },
     wedding: { trim: 150, finale: 'dip', checklist: {} },
@@ -70,22 +67,28 @@ function loadProject() {
 function sanitize(p) {
   const d = defaultProject();
   const out = { ...d, ...p, wedding: { ...d.wedding, ...(p.wedding || {}) }, music: p.music || d.music };
+  if (out.style === 'swing') out.style = 'country';
   if (!STYLES[out.style]) out.style = d.style;
-  if (!Array.isArray(out.dancers) || !out.dancers.length) out.dancers = d.dancers;
-  out.dancers = out.dancers.slice(0, MAX_DANCERS).map((x, i) => ({
-    id: x.id || uid(),
-    name: String(x.name || `Dancer ${i + 1}`).slice(0, 18),
-    color: /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : PALETTE[i % PALETTE.length],
-    role: x.role === 'follow' ? 'follow' : 'lead',
-    outfit: ['pants', 'suit', 'dress'].includes(x.outfit) ? x.outfit : 'pants',
-    hair: HAIR_STYLES[x.hair] ? x.hair : defaultHair(x.outfit),
-    skin: Math.max(0, Math.min(SKIN_TONES.length - 1, x.skin | 0))
-  }));
+  // always exactly one couple: a lead and a follow
+  const src = Array.isArray(out.dancers) ? out.dancers : [];
+  out.dancers = ['lead', 'follow'].map((role, i) => {
+    const x = src.find((y) => y && y.role === role) || src[i] || d.dancers[i];
+    return {
+      id: x.id || uid(),
+      name: String(x.name || d.dancers[i].name).slice(0, 18),
+      color: /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : d.dancers[i].color,
+      role,
+      outfit: ['pants', 'suit', 'dress'].includes(x.outfit) ? x.outfit : d.dancers[i].outfit,
+      skin: Math.max(0, Math.min(SKIN_TONES.length - 1, x.skin | 0))
+    };
+  });
+  out.difficulty = Math.max(1, Math.min(LEVELS.length, Math.round(+out.difficulty || d.difficulty)));
+  if (!STYLES[out.style].finales.includes(out.wedding.finale)) out.wedding.finale = defaultFinale(out.style, out.difficulty);
   out.counts = Array.isArray(out.counts) ? out.counts.filter((c) => c && MOVES[c.move]) : [];
   out.bpm = Math.max(40, Math.min(220, +out.bpm || d.bpm));
   out.offset = Math.max(0, +out.offset || 0);
   out.duration = Math.max(20, +out.duration || d.duration);
-  if (!FORMATIONS[out.formation]) out.formation = 'line';
+  for (const k of ['formation', 'canon', 'mirrorAlt']) delete out[k];
   return out;
 }
 
@@ -98,6 +101,12 @@ function save() {
       localStorage.setItem(STORE_KEY, JSON.stringify(project));
     } catch {}
   }, 300);
+}
+
+/** A difficulty badge: level name plus filled ticks. */
+function levelBadge(level, id) {
+  const ticks = LEVELS.map((_, i) => `<i class="${i < level ? 'on' : ''}"></i>`).join('');
+  return `<span class="badge lvl l${level}"${id ? ` id="${id}"` : ''} title="${LEVELS[level - 1]}">${LEVELS[level - 1]} <span class="ticks">${ticks}</span></span>`;
 }
 
 function toast(msg, ms = 2600) {
@@ -116,7 +125,7 @@ const eightStart = (i) => project.offset + i * 8 * beatLen();
 
 function eightCount() {
   let end = project.duration || 150;
-  if (project.style === 'wedding' && +project.wedding.trim) end = Math.min(end, project.offset + +project.wedding.trim);
+  if (+project.wedding.trim) end = Math.min(end, project.offset + +project.wedding.trim);
   const n = Math.floor(((end - project.offset) / beatLen()) / 8);
   return Math.max(2, Math.min(120, n));
 }
@@ -126,8 +135,8 @@ function rebuildCounts({ keepLocked = true, reseed = false } = {}) {
   const n = eightCount();
   const gen = generateChoreo(project.style, n, {
     seed: project.seed,
-    finaleId: project.style === 'wedding' ? project.wedding.finale : undefined,
-    solo: project.dancers.length < 2
+    finaleId: project.wedding.finale,
+    difficulty: project.difficulty
   });
   const old = project.counts;
   project.counts = gen.map((g, i) => (keepLocked && old[i] && old[i].locked && MOVES[old[i].move] ? old[i] : g));
@@ -151,6 +160,9 @@ stageEl.prepend(renderer.domElement);
 $('#stageLoading').remove();
 
 const scene = new THREE.Scene();
+// soft studio reflections so skin, satin and wool read as real materials
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
 const bg = new THREE.Color('#0d0a16');
 scene.background = bg;
 scene.fog = new THREE.Fog(bg, 11, 26);
@@ -165,7 +177,7 @@ controls.minDistance = 1.8;
 controls.maxDistance = 20;
 controls.enablePan = false;
 
-const hemi = new THREE.HemisphereLight('#c9c0ff', '#2a1d33', 0.85);
+const hemi = new THREE.HemisphereLight('#c9c0ff', '#2a1d33', 0.45);
 scene.add(hemi);
 const key = new THREE.DirectionalLight('#fff1e0', 2.2);
 key.position.set(3, 7, 5);
@@ -181,7 +193,7 @@ const fill = new THREE.PointLight('#8a5cf6', 18, 14);
 fill.position.set(-4, 2.5, 3);
 scene.add(fill);
 
-const floorMat = new THREE.MeshStandardMaterial({ color: '#1c1628', roughness: 0.32, metalness: 0.25 });
+const floorMat = new THREE.MeshStandardMaterial({ color: '#1c1628', roughness: 0.38, metalness: 0.1, envMapIntensity: 0.25 });
 const floor = new THREE.Mesh(new THREE.CircleGeometry(40, 96), floorMat);
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
@@ -229,7 +241,7 @@ const stageGroup = new THREE.Group();
 scene.add(stageGroup);
 
 function applyTheme() {
-  const wed = project.style === 'wedding';
+  const wed = true; // every routine here is a wedding dance
   document.body.classList.toggle('theme-wedding', wed);
   // Wedding: a bright, warm studio (like a rehearsal room); other styles: a dark stage.
   bg.set(wed ? '#ece5dd' : '#0d0a16');
@@ -302,14 +314,14 @@ $('#btnMirror').addEventListener('click', (e) => {
 let rigs = [];
 function syncRigs() {
   project.dancers.forEach((d, i) => {
-    const k = [d.color, d.outfit, d.skin, d.hair].join('|');
+    const k = [d.color, d.outfit, d.skin, i].join('|');
     let r = rigs[i];
     if (!r || r.key !== k) {
       if (r) {
         stageGroup.remove(r.dancer.root);
         r.dancer.dispose();
       }
-      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, hair: d.hair, skin: SKIN_TONES[d.skin] }) };
+      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i }) };
       stageGroup.add(r.dancer.root);
     } else if (r.name !== d.name) {
       r.dancer.setLabel(d.name, d.color);
@@ -357,29 +369,42 @@ function clearPlayerHost() {
 }
 
 async function loadFile(file, label = file.name) {
+  audioContext(); // unlock audio while we're still inside the user's click/drop
   clearPlayerHost();
+  const bytes = await file.arrayBuffer();
   const url = URL.createObjectURL(file);
-  const src = new FileSource(url, $('#playerHost'), label);
+  let src = new FileSource(url, $('#playerHost'), label);
   setSource(src);
+  // If this page isn't allowed to stream the file into an <audio> element, play it through Web Audio instead.
+  src.on('error', () => {
+    if (source !== src) return;
+    clearPlayerHost();
+    src = new BufferSource(bytes.slice(0), label);
+    setSource(src);
+    setStatus(`🎵 “${label}” is ready — press ▶ to dance.`, 'ok');
+  });
   project.music = { kind: 'file', name: label };
   setMetronome(false);
   save();
   setStatus(`Analysing “${label}” for tempo…`);
   try {
-    const r = await analyzeTempo(await file.arrayBuffer(), (m) => setStatus(m));
-    if (source !== src) return;
+    const r = await analyzeTempo(bytes.slice(0), (m) => setStatus(m));
+    if (!(source instanceof FileSource || source instanceof BufferSource) || source.label !== label) return;
     project.bpm = r.bpm;
     project.offset = r.offset;
     project.duration = r.duration;
     reflectTempo();
     rebuildCounts();
-    setStatus(`🎵 “${label}” · detected ${r.bpm} BPM, first beat at ${r.offset.toFixed(2)}s. Not quite right? Try ½× / 2× or TAP along.`, 'ok');
+    setStatus(`🎵 “${label}” · detected ${r.bpm} BPM, first beat at ${r.offset.toFixed(2)}s. Press ▶ to dance. Not quite right? Try ½× / 2× or TAP along.`, 'ok');
     toast(`Choreographed ${project.counts.length} eight-counts to your song!`);
   } catch (e) {
     console.warn(e);
     setStatus(`Loaded “${label}”. We couldn’t detect the tempo automatically — press play and tap TAP on each beat.`, 'err');
   }
 }
+
+const STREAM_BLOCKED =
+  'This link couldn’t load here. Streaming players (YouTube / SoundCloud) can be blocked when the app runs inside a preview or private page — upload the song file instead (📁 Upload), or open the app from its own web address.';
 
 function loadLink(raw, { quiet = false } = {}) {
   const info = parseMusicLink(raw);
@@ -390,14 +415,21 @@ function loadLink(raw, { quiet = false } = {}) {
   clearPlayerHost();
   const host = $('#playerHost');
   setMetronome(false);
+  const watchdog = (src, ms = 10000) => {
+    src.on('error', () => source === src && setStatus(STREAM_BLOCKED, 'err'));
+    setTimeout(() => {
+      if (source === src && !src.ready) setStatus(STREAM_BLOCKED, 'err');
+    }, ms);
+    return src;
+  };
   if (info.type === 'youtube') {
-    setSource(new YouTubeSource(info.id, host));
+    setSource(watchdog(new YouTubeSource(info.id, host), 16000));
     setStatus(`${info.music ? 'YouTube Music' : 'YouTube'} track loaded. Press ▶, then tap TAP on every beat starting on a “1” to sync the dancers.`, 'ok');
   } else if (info.type === 'soundcloud') {
-    setSource(new SoundCloudSource(info.url, host));
+    setSource(watchdog(new SoundCloudSource(info.url, host)));
     setStatus('SoundCloud track loaded. Press ▶, then tap TAP on every beat starting on a “1” to sync the dancers.', 'ok');
   } else {
-    const src = new FileSource(info.url, host, 'Audio link');
+    const src = watchdog(new FileSource(info.url, host, 'Audio link'));
     setSource(src);
     setStatus('Audio link loaded — trying to detect tempo…');
     fetch(info.url)
@@ -443,10 +475,10 @@ function ensureSource() {
 }
 
 // metronome click
-let actx;
 function click(accent) {
   try {
-    actx ||= new (window.AudioContext || window.webkitAudioContext)();
+    const actx = audioContext();
+    if (!actx || actx.state !== 'running') return;
     const o = actx.createOscillator();
     const g = actx.createGain();
     o.frequency.value = accent ? 1660 : 1100;
@@ -471,8 +503,8 @@ function updatePlayBtn(playing) {
   b.setAttribute('aria-label', playing ? 'Pause' : 'Play');
 }
 function togglePlay() {
+  audioContext(); // browsers only allow sound to start from a click/tap/key press
   ensureSource();
-  if (actx && actx.state === 'suspended') actx.resume();
   if (source.playing) source.pause();
   else source.play();
 }
@@ -495,6 +527,7 @@ function setLoop(on, idx = curEight()) {
 }
 
 $('#btnPlay').addEventListener('click', togglePlay);
+['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, () => audioContext(), { passive: true }));
 $('#btnRestart').addEventListener('click', () => seek(0));
 $('#btnPrev').addEventListener('click', () => seekEight(curEight() - (((curTime() - eightStart(curEight())) < 1) ? 1 : 0)));
 $('#btnNext').addEventListener('click', () => seekEight(curEight() + 1));
@@ -672,13 +705,13 @@ function renderStyles() {
   $$('.style-card').forEach((b) => b.addEventListener('click', () => setStyle(b.dataset.style)));
 }
 
-function setStyle(id, { announce = true } = {}) {
+function setStyle(id) {
   const prev = project.style;
   project.style = id;
   const st = STYLES[id];
-  if (id === 'wedding' && project.dancers.length < 2) {
-    project.dancers = weddingDancers([$('#nameLead').value || 'Partner A', $('#nameFollow').value || 'Partner B']);
-    if (announce) toast('Added a partner for your first dance 💕');
+  if (!st.finales.includes(project.wedding.finale)) {
+    project.wedding.finale = defaultFinale(id, project.difficulty);
+    project.wedding.finalePicked = false;
   }
   if (project.music.kind === 'none' && prev !== id) {
     project.bpm = st.defaultBpm;
@@ -687,36 +720,20 @@ function setStyle(id, { announce = true } = {}) {
   }
   rebuildCounts({ keepLocked: false });
   renderStyles();
-  renderDancers();
   renderSidePanels();
-  applyTheme();
   syncRigs();
   setView(view);
 }
 
 function startWeddingMode() {
-  const names = [$('#nameLead').value || 'Partner A', $('#nameFollow').value || 'Partner B'];
-  project.dancers = weddingDancers(names);
-  project.formation = 'line';
-  project.canon = 0;
-  project.mirrorAlt = false;
   if (project.title === 'My Choreography' || !project.title) project.title = 'Our First Dance';
   $('#projectTitle').value = project.title;
-  setStyle('wedding', { announce: false });
-  reflectGroupOpts();
   showTab('upload');
   setView('front');
   $('#musicCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  toast('💍 Wedding mode! Now upload or link your first-dance song.', 3500);
+  toast('💍 Upload or link your first-dance song, then pick a style and difficulty.', 3500);
 }
 $('#btnWeddingHero').addEventListener('click', startWeddingMode);
-$('#btnWeddingTop').addEventListener('click', () => {
-  $('#weddingHero').hidden = false;
-  try {
-    localStorage.removeItem(HERO_KEY);
-  } catch {}
-  startWeddingMode();
-});
 $('#btnHideHero').addEventListener('click', () => {
   $('#weddingHero').hidden = true;
   try {
@@ -726,26 +743,56 @@ $('#btnHideHero').addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Dancers
+// Difficulty bar
+// ---------------------------------------------------------------------------
+function renderDifficulty() {
+  const d = project.difficulty;
+  $('#difficulty').value = d;
+  $('#difficulty').style.setProperty('--fill', `${((d - 1) / (LEVELS.length - 1)) * 100}%`);
+  $('#diffName').textContent = LEVELS[d - 1];
+  $$('#diffTicks button').forEach((t, i) => t.classList.toggle('on', i < d));
+  const moves = STYLES[project.style].moves.filter((m) => !m.finale && m.level <= d);
+  const tricks = moves.filter((m) => m.level >= 3).map((m) => m.name);
+  $('#diffHint').textContent = tricks.length ? `Includes: ${tricks.slice(-4).join(', ')}` : 'Just the basics — simple, elegant and easy to learn.';
+}
+const SHORT_LEVELS = ['Beginner', 'Easy', 'Medium', 'Advanced', 'Show'];
+$('#diffTicks').innerHTML = LEVELS.map((n, i) => `<button type="button" data-level="${i + 1}" title="${n}"><i></i><span>${SHORT_LEVELS[i]}</span></button>`).join('');
+function setDifficulty(d) {
+  d = Math.max(1, Math.min(LEVELS.length, d));
+  if (d === project.difficulty) return;
+  project.difficulty = d;
+  const st = STYLES[project.style];
+  const fin = MOVES[project.wedding.finale];
+  // follow the difficulty unless the couple picked a finale themselves (and can still manage it)
+  if (!project.wedding.finalePicked || !fin || fin.level > d) project.wedding.finale = defaultFinale(project.style, d);
+  rebuildCounts({ keepLocked: true });
+  renderDifficulty();
+  renderSidePanels();
+  toast(`${LEVELS[d - 1]} — ${d >= 4 ? 'lifts and tricks added! Practise them with a spotter.' : d >= 3 ? 'turns, spins and a few tricks.' : 'easy-to-learn partnering.'}`);
+  if (st) save();
+}
+$('#difficulty').addEventListener('input', (e) => setDifficulty(+e.target.value));
+$('#diffTicks').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-level]');
+  if (b) setDifficulty(+b.dataset.level);
+});
+
+// ---------------------------------------------------------------------------
+// The couple
 // ---------------------------------------------------------------------------
 function renderDancers() {
-  const partner = STYLES[project.style].partner;
-  $('#dancerCount').textContent = `${project.dancers.length} / ${MAX_DANCERS}`;
   $('#dancerList').innerHTML = project.dancers
     .map(
       (d, i) => `<li class="dancer" data-i="${i}">
-      <input type="color" value="${d.color}" data-k="color" aria-label="Colour for ${esc(d.name)}" />
-      <input class="d-name" type="text" value="${esc(d.name)}" maxlength="18" data-k="name" aria-label="Dancer name" />
-      <button class="remove" data-act="remove" title="Remove dancer" ${project.dancers.length < 2 ? 'disabled' : ''}>✕</button>
+      <input type="color" value="${d.color}" data-k="color" aria-label="Outfit colour for ${esc(d.name)}" />
+      <input class="d-name" type="text" value="${esc(d.name)}" maxlength="18" data-k="name" aria-label="${d.role === 'lead' ? 'Lead' : 'Follow'} name" />
+      <span class="role-tag ${d.role}">${d.role === 'lead' ? 'Lead' : 'Follow'}</span>
       <div class="d-opts">
-        <select data-k="role" title="Partner role" ${partner ? '' : 'disabled'}><option value="lead" ${d.role === 'lead' ? 'selected' : ''}>Lead</option><option value="follow" ${d.role === 'follow' ? 'selected' : ''}>Follow</option></select>
-        <select data-k="outfit" title="Outfit"><option value="pants" ${d.outfit === 'pants' ? 'selected' : ''}>Casual</option><option value="suit" ${d.outfit === 'suit' ? 'selected' : ''}>Suit</option><option value="dress" ${d.outfit === 'dress' ? 'selected' : ''}>Dress</option></select>
-        <select data-k="hair" title="Hair">${Object.entries(HAIR_STYLES).map(([v, l]) => `<option value="${v}" ${d.hair === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
-        <select data-k="skin" title="Skin tone">${SKIN_TONES.map((_, s) => `<option value="${s}" ${d.skin === s ? 'selected' : ''}>Tone ${s + 1}</option>`).join('')}</select>
+        <select data-k="outfit" title="Outfit"><option value="suit" ${d.outfit === 'suit' ? 'selected' : ''}>Suit</option><option value="dress" ${d.outfit === 'dress' ? 'selected' : ''}>Gown</option><option value="pants" ${d.outfit === 'pants' ? 'selected' : ''}>Casual</option></select>
+        <select data-k="skin" title="Skin tone">${SKIN_TONES.map((_, s) => `<option value="${s}" ${d.skin === s ? 'selected' : ''}>Skin tone ${s + 1}</option>`).join('')}</select>
       </div></li>`
     )
     .join('');
-  $('#btnAddDancer').disabled = project.dancers.length >= MAX_DANCERS;
 }
 $('#dancerList').addEventListener('input', (e) => {
   const li = e.target.closest('.dancer');
@@ -761,61 +808,18 @@ $('#dancerList').addEventListener('input', (e) => {
   syncRigs();
   save();
 });
-$('#dancerList').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-act="remove"]');
-  if (!btn || project.dancers.length < 2) return;
-  project.dancers.splice(+btn.closest('.dancer').dataset.i, 1);
-  afterDancerChange();
-});
-$('#btnAddDancer').addEventListener('click', () => {
-  if (project.dancers.length >= MAX_DANCERS) return;
-  const leads = project.dancers.filter((d) => d.role === 'lead').length;
-  const n = project.dancers.length;
-  const role = leads > n - leads ? 'follow' : 'lead';
-  const wed = project.style === 'wedding';
-  project.dancers.push({
-    id: uid(),
-    name: `Dancer ${n + 1}`,
-    color: wed ? WEDDING_COLORS[role] : PALETTE[n % PALETTE.length],
-    role,
-    outfit: wed ? (role === 'lead' ? 'suit' : 'dress') : 'pants',
-    hair: wed && role === 'follow' ? 'long' : n % 3 === 1 ? 'long' : n % 3 === 2 ? 'bun' : 'short',
-    skin: (n * 2) % SKIN_TONES.length
-  });
-  afterDancerChange();
-  toast(STYLES[project.style].partner ? `Added a ${role} — partner moves pair leads with follows` : 'Dancer added');
-});
-function afterDancerChange() {
+$('#btnSwapRoles').addEventListener('click', () => {
+  // swap who leads: keep each person's look, trade the role
+  const [a, b] = project.dancers;
+  project.dancers = [
+    { ...b, role: 'lead' },
+    { ...a, role: 'follow' }
+  ];
   renderDancers();
+  syncCoupleNames();
   syncRigs();
-  if (project.dancers.length < 2 !== (rebuildCounts.lastSolo ?? false)) {
-    rebuildCounts.lastSolo = project.dancers.length < 2;
-    rebuildCounts();
-  }
-  setView(view);
   save();
-}
-
-function reflectGroupOpts() {
-  $('#formation').value = project.formation;
-  $('#canon').value = String(project.canon);
-  $('#mirrorAlt').checked = project.mirrorAlt;
-  $('#energy').value = project.energy;
-}
-$('#formation').innerHTML = Object.entries(FORMATIONS)
-  .map(([k, v]) => `<option value="${k}">${v}</option>`)
-  .join('');
-$('#formation').addEventListener('change', (e) => {
-  project.formation = e.target.value;
-  save();
-});
-$('#canon').addEventListener('change', (e) => {
-  project.canon = +e.target.value;
-  save();
-});
-$('#mirrorAlt').addEventListener('change', (e) => {
-  project.mirrorAlt = e.target.checked;
-  save();
+  toast(`${project.dancers[0].name} now leads`);
 });
 $('#energy').addEventListener('input', (e) => {
   project.energy = +e.target.value;
@@ -835,16 +839,19 @@ function renderSidePanels() {
   const st = STYLES[project.style];
   $('#tipsTitle').textContent = `${st.icon} ${st.short} tips`;
   $('#tips').innerHTML = st.tips.map((t) => `<li>${esc(t)}</li>`).join('');
-  const wed = project.style === 'wedding';
-  $('#weddingPlanner').hidden = !wed;
-  if (wed) {
-    syncCoupleNames();
-    $('#trim').value = String(project.wedding.trim);
-    $('#finale').value = project.wedding.finale;
-    $('#checklist').innerHTML = WEDDING_CHECKLIST.map(
-      (c, i) => `<li><label><input type="checkbox" data-i="${i}" ${project.wedding.checklist[i] ? 'checked' : ''}/><span>${esc(c)}</span></label></li>`
-    ).join('');
-  }
+  syncCoupleNames();
+  $('#trim').value = String(project.wedding.trim);
+  $('#finale').innerHTML = st.finales
+    .map((id) => {
+      const m = MOVES[id];
+      const hard = m.level > project.difficulty;
+      return `<option value="${id}">${esc(m.name)} · ${LEVELS[m.level - 1]}${hard ? ' (above your level)' : ''}</option>`;
+    })
+    .join('');
+  $('#finale').value = project.wedding.finale;
+  $('#checklist').innerHTML = WEDDING_CHECKLIST.map(
+    (c, i) => `<li><label><input type="checkbox" data-i="${i}" ${project.wedding.checklist[i] ? 'checked' : ''}/><span>${esc(c)}</span></label></li>`
+  ).join('');
 }
 ['#nameLead', '#nameFollow'].forEach((sel) =>
   $(sel).addEventListener('input', (e) => {
@@ -852,7 +859,7 @@ function renderSidePanels() {
     const d = project.dancers.find((x) => x.role === role);
     if (d) {
       d.name = e.target.value || (role === 'lead' ? 'Partner A' : 'Partner B');
-      renderDancers();
+      $$('#dancerList .d-name')[project.dancers.indexOf(d)].value = d.name;
       syncRigs();
       save();
     }
@@ -865,6 +872,7 @@ $('#trim').addEventListener('change', (e) => {
 });
 $('#finale').addEventListener('change', (e) => {
   project.wedding.finale = e.target.value;
+  project.wedding.finalePicked = true;
   const last = project.counts.length - 1;
   if (last >= 0) project.counts[last] = { move: e.target.value, section: 'Finale' };
   renderTimeline();
@@ -930,7 +938,6 @@ function renderPicker() {
   const all = $('#pickerAll').checked;
   const ids = all ? STYLE_ORDER : [project.style];
   const cur = project.counts[pickerIdx]?.move;
-  const solo = project.dancers.length < 2;
   $('#moveGrid').innerHTML = ids
     .map((sid) => {
       const st = STYLES[sid];
@@ -938,7 +945,7 @@ function renderPicker() {
         .map(
           (m) => `<button type="button" class="move-opt ${m.id === cur ? 'current' : ''}" data-move="${m.id}">
           <b>${esc(m.name)}</b>
-          <span class="m-tags"><span class="badge ${m.level}">${m.level}</span>${m.partner ? `<span class="badge">Partner${solo ? ' (solo: lead part)' : ''}</span>` : ''}${m.finale ? '<span class="badge">Finale</span>' : ''}</span>
+          <span class="m-tags">${levelBadge(m.level)}${m.lift ? '<span class="badge">Lift</span>' : ''}${m.finale ? '<span class="badge">Finale</span>' : ''}${m.level > project.difficulty ? '<span class="badge warn">Above your level</span>' : ''}</span>
           <small>${esc(m.desc)}</small></button>`
         )
         .join('');
@@ -1021,8 +1028,7 @@ function updateHud(beat, t) {
   if (move.id !== lastMoveId) {
     $('#nowName').textContent = move.name;
     const lv = $('#nowLevel');
-    lv.textContent = move.level;
-    lv.className = 'badge ' + move.level;
+    lv.outerHTML = levelBadge(move.level, 'nowLevel');
     $('#nowDesc').textContent = move.desc;
     $('#cueList').innerHTML = move.cues.map((c) => `<li>${esc(c)}</li>`).join('');
     $('#cueMove').textContent = move.name;
@@ -1139,12 +1145,12 @@ $('#btnPrint').addEventListener('click', () => {
   const rows = project.counts
     .map((c, i) => {
       const m = MOVES[c.move];
-      return `<tr><td>${i + 1}</td><td>${fmt(eightStart(i))}</td><td>${esc(c.section || '')}</td><td><b>${esc(m.name)}</b><br><small>${m.level}</small></td><td>${m.cues.map((q, j) => `<b>${j + 1}</b> ${esc(q)}`).join(' · ')}</td></tr>`;
+      return `<tr><td>${i + 1}</td><td>${fmt(eightStart(i))}</td><td>${esc(c.section || '')}</td><td><b>${esc(m.name)}</b><br><small>${LEVELS[m.level - 1]}${m.lift ? ' · lift' : ''}</small></td><td>${m.cues.map((q, j) => `<b>${j + 1}</b> ${esc(q)}`).join(' · ')}</td></tr>`;
     })
     .join('');
-  const dancers = project.dancers.map((d) => `${esc(d.name)}${st.partner ? ` (${d.role})` : ''}`).join(', ');
+  const dancers = project.dancers.map((d) => `${esc(d.name)} (${d.role})`).join(' &amp; ');
   $('#printSheet').innerHTML = `<h1>${esc(project.title)}</h1>
-    <p>${st.icon} ${esc(st.name)} · ${project.bpm} BPM · starts at ${fmt(project.offset)} · ${project.counts.length} eight-counts${project.music.name ? ' · ' + esc(project.music.name) : ''}<br>Dancers: ${dancers}</p>
+    <p>${st.icon} ${esc(st.name)} · ${project.bpm} BPM · starts at ${fmt(project.offset)} · ${project.counts.length} eight-counts${project.music.name ? ' · ' + esc(project.music.name) : ''} · ${LEVELS[project.difficulty - 1]}<br>Couple: ${dancers}</p>
     <table><thead><tr><th>#</th><th>Time</th><th>Section</th><th>Move</th><th>Counts</th></tr></thead><tbody>${rows}</tbody></table>
     <h3>Tips</h3><ul>${st.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
     <p><small>Made with StepStudio 3D</small></p>`;
@@ -1174,13 +1180,13 @@ function boot() {
   clearPlayerHost();
   setLoop(false);
   reflectTempo();
-  reflectGroupOpts();
+  $('#energy').value = project.energy;
+  renderDifficulty();
   renderStyles();
   renderDancers();
   renderSidePanels();
   applyTheme();
   syncRigs();
-  rebuildCounts.lastSolo = project.dancers.length < 2;
   if (!project.counts.length) rebuildCounts();
   else {
     // adapt a saved routine to the current length, keeping everything
@@ -1205,5 +1211,7 @@ window.stepstudio = {
   },
   setStyle,
   seekBeat: (b) => seek(project.offset + b * beatLen()),
+  camera,
+  controls,
   setView
 };
