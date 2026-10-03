@@ -991,6 +991,7 @@ function renderPicker() {
     .map((sid) => {
       const st = STYLES[sid];
       const opts = st.moves
+        .filter((m) => !m.chained)
         .map(
           (m) => `<button type="button" class="move-opt ${m.id === cur ? 'current' : ''}" data-move="${m.id}">
           <b>${esc(m.name)}</b>
@@ -1008,6 +1009,9 @@ $('#moveGrid').addEventListener('click', (e) => {
   if (!b) return;
   const c = project.counts[pickerIdx];
   project.counts[pickerIdx] = { move: b.dataset.move, section: c?.section || '', locked: true };
+  // a two-part move brings its second half along (when there's room before the finale)
+  const then = MOVES[b.dataset.move].then;
+  if (then && pickerIdx + 1 < project.counts.length - 1) project.counts[pickerIdx + 1] = { move: then, section: project.counts[pickerIdx + 1].section || '', locked: true };
   $('#movePicker').close();
   renderTimeline();
   save();

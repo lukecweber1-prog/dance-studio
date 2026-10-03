@@ -5,7 +5,7 @@ A browser app that choreographs a dance to your song and teaches it with animate
 ## Features
 
 - **Made for couples**: every routine is a duet for a lead and a follow (name, outfit, skin tone and colour for each; swap who leads with one click). The partners stay together in a hold and only separate for spin-outs and tricks.
-- **Five duet styles**: Classic Romantic (sways, waltz box, turns, reveal, lifts), **Country Swing** (the slow-slow-quick-quick basic, inside turn, spin-out, cuddle, lap sit, hip lift, slide-through, cradle carry, aerial flip, death-drop finale), Jazz, Lyrical and Hip-Hop.
+- **Five duet styles**: Classic Romantic (sways, waltz box, turns, reveal, lifts), **Country Swing** (the slow-slow-quick-quick basic, inside turn, spin-out, cuddle, windmill, dishrag, sweetheart wrap, change places & lead’s turn, the two-part pretzel, lap sit, hip lift, slide-through, cradle carry, aerial flip, death-drop finale), Jazz, Lyrical and Hip-Hop.
 - **Difficulty bar**: five ticks from Beginner to Showstopper. Each move has a level; the routine uses moves up to the chosen level, keeps a basic at the start of each phrase and saves the biggest move (lifts and tricks at higher levels) for the end of it.
 - **Music from anywhere**
   - Paste a **SoundCloud**, **YouTube Music**, YouTube / youtu.be or direct `.mp3` link (played through the official embed players).
