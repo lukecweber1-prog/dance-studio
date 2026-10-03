@@ -114,7 +114,7 @@ function setTorso(obj, [lean, twist, tilt]) {
 const SKIN_TONES = ['#f1c7a5', '#d9a07a', '#b97a56', '#8d5a3b', '#5e3a24'];
 export { SKIN_TONES };
 
-function labelSprite(text, color) {
+export function labelSprite(text, color) {
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 64;
@@ -501,17 +501,18 @@ export class Dancer {
   /**
    * outfit: 'pants' | 'suit' | 'dress'. variant picks hair & build for casual dancers.
    */
-  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1], variant = 0, look = 'outfit', hair } = {}) {
+  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1], variant = 0, look = 'outfit', hair, driverOnly = false } = {}) {
     this.root = new THREE.Group();
     this.outfit = outfit;
     this.mannequin = look === 'mannequin';
+    this.driverOnly = driverOnly; // just the skeleton, used to pose an imported 3D model
     this.fem = outfit === 'dress' || (outfit === 'pants' && variant % 2 === 1);
     this.hairStyle = HAIR_STYLES[hair] ? hair : outfit === 'pants' && this.fem ? 'ponytail' : defaultHair(outfit);
     this.hairColor = outfit === 'suit' ? '#5a3a22' : outfit === 'dress' ? '#2a1a12' : HAIR_COLORS[(variant * 3 + 1) % HAIR_COLORS.length];
     this._build(color, this.mannequin ? 'none' : outfit, skin);
     this.root.scale.setScalar(this.fem ? 0.94 : 0.98);
     this.blink = { next: performance.now() / 1000 + 1 + Math.random() * 3, until: 0 };
-    this.setLabel(name, color);
+    if (!driverOnly) this.setLabel(name, color);
     this.setPose(P());
   }
 
@@ -605,6 +606,7 @@ export class Dancer {
     pelvis.position.y = HIP_H;
     this.root.updateMatrixWorld(true);
     const skeleton = (this.skeleton = new THREE.Skeleton(bones));
+    if (this.driverOnly) return;
     const wp = (o) => o.getWorldPosition(new THREE.Vector3());
 
     const skinned = (geo, keys, guide = {}) => {
@@ -1045,7 +1047,7 @@ export class Dancer {
       b.next = now + 2.5 + Math.random() * 3.5;
     }
     const sy = now < b.until ? 0.15 : 1;
-    for (const e of this.eyes) e.scale.y = sy;
+    for (const e of this.eyes || []) e.scale.y = sy;
   }
 
   setLabel(name, color) {

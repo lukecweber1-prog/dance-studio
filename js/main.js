@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Dancer, SKIN_TONES, HAIR_STYLES, defaultHair } from './rig.js';
 import { STYLES, STYLE_ORDER, MOVES, LEVELS, generateChoreo, defaultFinale } from './moves.js';
 import { evaluate } from './engine.js';
+import { ModelDancer, loadModel, MODELS } from './model.js';
 import { parseMusicLink, audioContext, FileSource, BufferSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
@@ -49,7 +50,7 @@ function defaultProject() {
     seed: 20261002,
     dancers: weddingDancers(),
     difficulty: 2,
-    look: 'outfit',
+    look: 'real',
     energy: 1,
     music: { kind: 'none' },
     wedding: { trim: 150, finale: 'dip', checklist: {} },
@@ -90,7 +91,7 @@ function sanitize(p) {
   out.bpm = Math.max(40, Math.min(220, +out.bpm || d.bpm));
   out.offset = Math.max(0, +out.offset || 0);
   out.duration = Math.max(20, +out.duration || d.duration);
-  out.look = out.look === 'mannequin' ? 'mannequin' : 'outfit';
+  out.look = ['real', 'outfit', 'mannequin'].includes(out.look) ? out.look : 'real';
   for (const k of ['formation', 'canon', 'mirrorAlt']) delete out[k];
   return out;
 }
@@ -308,15 +309,22 @@ function setView(v, instant = false) {
 }
 $$('.vbtn[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 function reflectLook() {
-  $('#btnLook').classList.toggle('active', project.look === 'mannequin');
+  $$('[data-look]').forEach((b) => b.classList.toggle('active', b.dataset.look === project.look));
 }
-$('#btnLook').addEventListener('click', () => {
-  project.look = project.look === 'mannequin' ? 'outfit' : 'mannequin';
-  reflectLook();
-  syncRigs();
-  save();
-  toast(project.look === 'mannequin' ? 'Mannequin view — see every step and line of the body' : 'Wedding outfits back on 💍');
-});
+const LOOK_TOASTS = {
+  real: 'Real characters — your groom and bride models',
+  outfit: 'Stylized dancers — choose outfits, hair and skin tones in “The couple”',
+  mannequin: 'Mannequin view — see every step and line of the body'
+};
+$$('[data-look]').forEach((b) =>
+  b.addEventListener('click', () => {
+    project.look = b.dataset.look;
+    reflectLook();
+    syncRigs();
+    save();
+    toast(LOOK_TOASTS[project.look]);
+  })
+);
 $('#btnMirror').addEventListener('click', (e) => {
   stageGroup.scale.x *= -1;
   e.currentTarget.classList.toggle('active', stageGroup.scale.x < 0);
@@ -325,16 +333,43 @@ $('#btnMirror').addEventListener('click', (e) => {
 
 // dancers in the scene
 let rigs = [];
+// Real look: imported, rigged characters. Until a model has loaded (or if it fails) the built dancer stands in.
+const modelKind = (d) => (d.outfit === 'suit' ? 'groom' : d.outfit === 'dress' ? 'bride' : d.role === 'follow' ? 'bride' : 'groom');
+const loadedModels = {};
+const failedModels = {};
+function requestModel(kind) {
+  if (loadedModels[kind] || failedModels[kind] || requestModel[kind]) return;
+  requestModel[kind] = true;
+  loadModel(kind)
+    .then((g) => {
+      loadedModels[kind] = g;
+      syncRigs();
+    })
+    .catch((e) => {
+      console.warn('Model failed to load', kind, e);
+      failedModels[kind] = true;
+      toast('Couldn’t load the 3D character — showing the built dancers instead');
+    });
+}
+function makeDancer(d, i) {
+  if (project.look === 'real') {
+    const kind = modelKind(d);
+    if (loadedModels[kind]) return new ModelDancer({ gltf: loadedModels[kind], kind, name: d.name, color: d.color, outfit: d.outfit });
+    requestModel(kind);
+  }
+  return new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i, look: project.look === 'mannequin' ? 'mannequin' : 'outfit', hair: d.hair });
+}
 function syncRigs() {
   project.dancers.forEach((d, i) => {
-    const k = [d.color, d.outfit, d.skin, d.hair, i, project.look].join('|');
+    const real = project.look === 'real' ? `${modelKind(d)}:${!!loadedModels[modelKind(d)]}` : '';
+    const k = [d.color, d.outfit, d.skin, d.hair, i, project.look, real].join('|');
     let r = rigs[i];
     if (!r || r.key !== k) {
       if (r) {
         stageGroup.remove(r.dancer.root);
         r.dancer.dispose();
       }
-      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i, look: project.look, hair: d.hair }) };
+      r = rigs[i] = { key: k, name: d.name, dancer: makeDancer(d, i) };
       stageGroup.add(r.dancer.root);
     } else if (r.name !== d.name) {
       r.dancer.setLabel(d.name, d.color);

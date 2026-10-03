@@ -45,6 +45,7 @@ Any static host works, e.g. GitHub Pages or Netlify. Three.js is loaded from the
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | `js/rig.js`     | Procedural human dancer: skeleton + smooth skinned body and clothes, face, hair, hands, a cloth-like skirt; pose format, forward kinematics, automatic foot planting |
 | `js/moves.js`   | Duet move library (lead/follow keyframe tracks, difficulty levels, lifts), solo-to-duet converter, styles, routine generator |
+| `js/model.js`   | Loads the rigged groom/bride glTF models and retargets the driver skeleton's pose onto their bones (with their own foot planting) |
 | `js/engine.js`  | Turns song beat + project into per-dancer poses: easing per style, groove layer, formations, canon, couples, blending between moves |
 | `js/audio.js`   | Music sources (YouTube, SoundCloud, file, Web Audio fallback, clock), microphone recorder, tempo and downbeat detection |
 | `js/main.js`    | Three.js stage, UI, timeline, wedding planner, persistence                                       |
@@ -63,6 +64,15 @@ Limbs are `[raise, direction, twist, bend]` in degrees:
 ```
 
 Every move provides `lead` and `follow` tracks plus a `level` (1–5). Solo material can be partnered with `duet(solo, { hold })`, which mirrors it for the follow. Set `air: 1` and `root.lift` on a pose to lift a dancer off the floor.
+
+## 3D characters
+
+The **Real** look uses two rigged models from `models/` (the Stylized and Mannequin looks are built in code):
+
+- **Groom**: “Man dressed in suit”, made with [MakeHuman](https://www.makehumancommunity.org/) (CC0). Converted from Collada to glTF.
+- **Bride**: “[Casual Woman in Brown Dress Rigged Idle](https://sketchfab.com/3d-models/casual-woman-in-brown-dress-rigged-idle-b38456c89bf94323aa3c079f27e435ce)” by [florah](https://sketchfab.com/florah), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Optimised for the web (simplified mesh, WebP textures, quantised).
+
+Any humanoid glTF with a Mixamo or MakeHuman skeleton can be swapped in: add it to `MODELS` in `js/model.js` (and its bone names to `BONES` if they differ).
 
 ## Notes
 
