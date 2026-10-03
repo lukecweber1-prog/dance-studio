@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>StepStudio 3D — Dance Choreography Creator</title>
-    <meta name="description" content="Paste a SoundCloud or YouTube Music link, upload or record a song, and a 3D dancer choreographs and teaches you a routine in Jazz, Lyrical, Hip-Hop, Swing — or your Wedding First Dance." />
+    <title>StepStudio 3D — Wedding First Dance Choreographer</title>
+    <meta name="description" content="Choreograph your wedding first dance to your own song. Choose Classic Romantic, Country Swing, Jazz, Lyrical or Hip-Hop, set the difficulty from Beginner to Showstopper, and a 3D couple teaches it count by count." />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💃</text></svg>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,9 +25,8 @@
         <span class="brand-mark">💃</span>
         <span class="brand-name">StepStudio <em>3D</em></span>
       </a>
-      <input id="projectTitle" class="project-title" type="text" value="My Choreography" aria-label="Project title" maxlength="60" />
+      <input id="projectTitle" class="project-title" type="text" value="Our First Dance" aria-label="Project title" maxlength="60" />
       <nav class="top-actions">
-        <button class="btn ghost" id="btnWeddingTop" title="Wedding first dance mode">💍 Wedding mode</button>
         <button class="btn ghost" id="btnPrint" title="Print a cue sheet">🖨️ Cue sheet</button>
         <button class="btn ghost" id="btnExport" title="Download this project">⬇️ Export</button>
         <label class="btn ghost" title="Open a saved project">⬆️ Import<input type="file" id="importFile" accept="application/json,.json" hidden /></label>
@@ -37,17 +36,17 @@
     <section class="wedding-hero" id="weddingHero">
       <div class="hero-sparkles" aria-hidden="true"></div>
       <div class="hero-copy">
-        <span class="hero-kicker">✨ Featured · Wedding First Dance</span>
+        <span class="hero-kicker">✨ Wedding First Dance Choreographer</span>
         <h1>Choreograph <em>your</em> first dance — to <em>your</em> song.</h1>
-        <p>Upload the song you’ll walk onto the dance floor to. We’ll build a beginner-friendly routine for two — gentle sways, a twirl, a reveal for your guests and a show-stopping dip — and a 3D couple will dance it with you, count by count.</p>
+        <p>Upload the song you’ll walk onto the dance floor to, pick a style for the two of you — Classic Romantic, Country Swing, Jazz, Lyrical or Hip-Hop — and choose how ambitious you want to be. A 3D couple dances it with you, count by count.</p>
         <div class="hero-actions">
           <button class="btn gold" id="btnWeddingHero">💍 Start our first dance</button>
-          <button class="btn ghost light" id="btnHideHero">Explore other styles</button>
+          <button class="btn ghost light" id="btnHideHero">Choose a style</button>
         </div>
       </div>
       <ul class="hero-points">
-        <li><b>No experience needed</b> — every move is broken into 8 simple counts.</li>
-        <li><b>Lead &amp; follow parts</b> shown on separate dancers.</li>
+        <li><b>Danced together</b> — every move is partnered, lead &amp; follow.</li>
+        <li><b>Beginner to Showstopper</b> — add difficulty for spins, lifts and flips.</li>
         <li><b>Print a cue sheet</b> to rehearse anywhere.</li>
       </ul>
     </section>
@@ -113,18 +112,21 @@
         </section>
 
         <section class="card" id="styleCard">
-          <h2><span class="step">2</span> Dance style</h2>
+          <h2><span class="step">2</span> Style &amp; difficulty</h2>
           <div class="style-grid" id="styleGrid"></div>
+          <div class="difficulty">
+            <div class="diff-head"><span>Difficulty</span><b id="diffName">Easy</b></div>
+            <input type="range" id="difficulty" min="1" max="5" step="1" value="2" aria-label="Difficulty" />
+            <div class="diff-ticks" id="diffTicks"></div>
+            <p class="hint" id="diffHint"></p>
+          </div>
         </section>
 
         <section class="card" id="dancerCard">
-          <h2><span class="step">3</span> Dancers <small id="dancerCount"></small></h2>
+          <h2><span class="step">3</span> The couple</h2>
           <ul class="dancer-list" id="dancerList"></ul>
-          <button class="btn add" id="btnAddDancer">＋ Add a dancer</button>
+          <button class="btn add" id="btnSwapRoles" title="Swap who leads and who follows">⇄ Swap lead &amp; follow</button>
           <div class="group-opts">
-            <label class="field">Formation <select id="formation"></select></label>
-            <label class="field">Canon / ripple <select id="canon"><option value="0">Off — in unison</option><option value="0.5">½ beat apart</option><option value="1">1 beat apart</option><option value="2">2 beats apart</option></select></label>
-            <label class="check"><input type="checkbox" id="mirrorAlt" /> Mirror every other dancer</label>
             <label class="field">Energy <input type="range" id="energy" min="0" max="1.6" step="0.1" value="1" /></label>
           </div>
         </section>
@@ -183,7 +185,7 @@
           <div class="up-next"><span>Up next</span> <b id="upNext">—</b></div>
         </section>
 
-        <section class="card wedding-planner" id="weddingPlanner" hidden>
+        <section class="card wedding-planner" id="weddingPlanner">
           <h2>💍 First dance planner</h2>
           <div class="couple-names">
             <label class="field">Lead <input id="nameLead" type="text" maxlength="18" value="Partner A" /></label>
@@ -194,7 +196,7 @@
             <select id="trim"><option value="0">Whole song</option><option value="90">1:30</option><option value="120">2:00</option><option value="150" selected>2:30</option><option value="180">3:00</option></select>
           </label>
           <label class="field">Grand finale
-            <select id="finale"><option value="dip">Dramatic dip</option><option value="spin-kiss">Twirl &amp; kiss</option></select>
+            <select id="finale"></select>
           </label>
           <h3>Rehearsal checklist</h3>
           <ul class="checklist" id="checklist"></ul>

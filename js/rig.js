@@ -37,11 +37,12 @@ export const NEUTRAL = Object.freeze({
   lLeg: [3, 0, 0, 3],
   rLeg: [3, 0, 0, 3],
   lFoot: 0, // pointe (degrees)
-  rFoot: 0
+  rFoot: 0,
+  air: 0 // 0 = feet planted on the floor, 1 = body held in the air (lifts): pelvis at standing height + root.lift
 });
 
 const VEC_KEYS = ['pelvis', 'spine', 'chest', 'head', 'lArm', 'rArm', 'lLeg', 'rLeg'];
-const NUM_KEYS = ['squat', 'spin', 'lFoot', 'rFoot'];
+const NUM_KEYS = ['squat', 'spin', 'lFoot', 'rFoot', 'air'];
 
 export function clonePose(p) {
   const o = { root: { ...p.root } };
@@ -867,7 +868,7 @@ export class Dancer {
     const topRings = 4;
     const hipR = S.hipR || (S.hipR = new Float32Array(M));
     const v = new THREE.Vector3();
-    const hemY = 0.018 + S.flare * 0.35;
+    const hemY = Math.max(0.018 + S.flare * 0.35, hipC.y - 0.9 + S.flare * 0.2); // a fixed length of fabric, so it lifts with her
     for (let i = 0; i < N; i++) {
       if (i < topRings) {
         // fitted bodice-to-hip section follows the pelvis
@@ -921,7 +922,7 @@ export class Dancer {
           py = v.y + (y - v.y) * w;
           pz = v.z + (gz - v.z) * w;
         }
-        pos.set([px, Math.max(0.012, py), pz], (i * M + j) * 3);
+        pos.set([px, Math.max(0.012, py), pz], (i * M + j) * 3); // never through the floor
       }
     }
     S.geo.attributes.position.needsUpdate = true;
@@ -997,7 +998,9 @@ export class Dancer {
         if (_v.y < minY) minY = _v.y;
       }
     }
-    this.pelvis.position.y += -minY + (p.root.lift || 0);
+    // Lifts blend from "standing on the floor" to "held in the air" so the follow can leave the ground.
+    const air = Math.min(1, Math.max(0, p.air || 0));
+    this.pelvis.position.y += -minY * (1 - air) + (p.root.lift || 0);
     this.pelvis.updateMatrixWorld(true);
     if (this.skirt) this._updateSkirt();
     this._updateBlink();
