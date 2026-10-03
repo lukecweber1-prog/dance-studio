@@ -10,12 +10,12 @@ const HIP_H = 0.04 + 0.43 + 0.42 + 0.075; // the driver skeleton's standing hip 
 
 export const MODELS = {
   groom: {
-    url: 'models/groom.glb',
+    url: 'models/groom.json',
     height: 1.8,
     credit: 'Groom: “Man dressed in suit”, made with MakeHuman (CC0)'
   },
   bride: {
-    url: 'models/bride.glb',
+    url: 'models/bride.json',
     height: 1.68,
     credit: 'Bride: “Casual Woman in Brown Dress Rigged Idle” by florah (sketchfab.com/florah), CC BY 4.0'
   }
