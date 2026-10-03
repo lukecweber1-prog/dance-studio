@@ -12,7 +12,7 @@ A browser app that choreographs a dance to your song and teaches it with animate
   - **Upload** a song file (MP3, WAV, M4A, OGG, even video files). The tempo and first beat are **detected automatically**.
   - **Record** your own music with the microphone, or practise with **no music** using a metronome and a "5, 6, 7, 8" count-in.
   - **TAP** tempo (or press `T`) syncs streamed tracks; you can also enter BPM / start time by hand.
-- **3D teaching stage**: front, follow-along (behind), side and top cameras, a mirror toggle, 0.5× and 0.75× practice speeds and looping of any 8-count.
+- **3D teaching stage**: front, follow-along (behind), side and top cameras, a mirror toggle, a **Mannequin** view (tan drawing-guide bodies with grid lines and an outline, so every step is visible even under the gown), 0.5× and 0.75× practice speeds and looping of any 8-count.
 - **Live cues**: a big count display, the current count's instruction, the full 8-count breakdown and what's next.
 - **Timeline editor**: swap any 8-count for a different move (even from another style); hand-picked moves are pinned 📌 and kept when you **Remix**.
 - **First dance planner**: trim the routine to 1:30–3:00, choose the grand finale, couple names, a rehearsal checklist and safety tips.

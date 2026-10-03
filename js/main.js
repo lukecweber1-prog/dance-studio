@@ -49,6 +49,7 @@ function defaultProject() {
     seed: 20261002,
     dancers: weddingDancers(),
     difficulty: 2,
+    look: 'outfit',
     energy: 1,
     music: { kind: 'none' },
     wedding: { trim: 150, finale: 'dip', checklist: {} },
@@ -88,6 +89,7 @@ function sanitize(p) {
   out.bpm = Math.max(40, Math.min(220, +out.bpm || d.bpm));
   out.offset = Math.max(0, +out.offset || 0);
   out.duration = Math.max(20, +out.duration || d.duration);
+  out.look = out.look === 'mannequin' ? 'mannequin' : 'outfit';
   for (const k of ['formation', 'canon', 'mirrorAlt']) delete out[k];
   return out;
 }
@@ -304,6 +306,16 @@ function setView(v, instant = false) {
   camTween = { from: camera.position.clone(), to, t0: performance.now(), dur: 650 };
 }
 $$('.vbtn[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+function reflectLook() {
+  $('#btnLook').classList.toggle('active', project.look === 'mannequin');
+}
+$('#btnLook').addEventListener('click', () => {
+  project.look = project.look === 'mannequin' ? 'outfit' : 'mannequin';
+  reflectLook();
+  syncRigs();
+  save();
+  toast(project.look === 'mannequin' ? 'Mannequin view — see every step and line of the body' : 'Wedding outfits back on 💍');
+});
 $('#btnMirror').addEventListener('click', (e) => {
   stageGroup.scale.x *= -1;
   e.currentTarget.classList.toggle('active', stageGroup.scale.x < 0);
@@ -314,14 +326,14 @@ $('#btnMirror').addEventListener('click', (e) => {
 let rigs = [];
 function syncRigs() {
   project.dancers.forEach((d, i) => {
-    const k = [d.color, d.outfit, d.skin, i].join('|');
+    const k = [d.color, d.outfit, d.skin, i, project.look].join('|');
     let r = rigs[i];
     if (!r || r.key !== k) {
       if (r) {
         stageGroup.remove(r.dancer.root);
         r.dancer.dispose();
       }
-      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i }) };
+      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i, look: project.look }) };
       stageGroup.add(r.dancer.root);
     } else if (r.name !== d.name) {
       r.dancer.setLabel(d.name, d.color);
@@ -1182,6 +1194,7 @@ function boot() {
   reflectTempo();
   $('#energy').value = project.energy;
   renderDifficulty();
+  reflectLook();
   renderStyles();
   renderDancers();
   renderSidePanels();
