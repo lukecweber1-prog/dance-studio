@@ -1341,3 +1341,15 @@ body.theme-wedding .btn.play {
     break-inside: avoid;
   }
 }
+
+/* wedding stage is a bright studio: keep the count readable */
+body.theme-wedding .stage {
+  background: #ece5dd;
+}
+body.theme-wedding .count-num {
+  color: #4a2b38;
+  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.8);
+}
+body.theme-wedding .count-dots i {
+  background: rgba(74, 43, 56, 0.2);
+}

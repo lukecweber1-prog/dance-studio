@@ -34,8 +34,8 @@ const WEDDING_CHECKLIST = [
 // ---------------------------------------------------------------------------
 function weddingDancers(names = ['Partner A', 'Partner B']) {
   return [
-    { id: uid(), name: names[0], color: WEDDING_COLORS.lead, role: 'lead', outfit: 'suit', skin: 1 },
-    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', skin: 0 }
+    { id: uid(), name: names[0], color: WEDDING_COLORS.lead, role: 'lead', outfit: 'suit', hair: 'short', skin: 1 },
+    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', hair: 'long', skin: 0 }
   ];
 }
 
@@ -243,13 +243,28 @@ scene.add(stageGroup);
 function applyTheme() {
   const wed = true; // every routine here is a wedding dance
   document.body.classList.toggle('theme-wedding', wed);
-  floorMat.color.set(wed ? '#2a1e22' : '#1c1628');
-  glowMat.color.set(wed ? '#e8c47a' : '#e24d7a');
-  sparkMat.color.set(wed ? '#ffd9a0' : '#a99fff');
-  sparkMat.size = wed ? 0.11 : 0.08;
-  rim.color.set(wed ? '#ffb38a' : '#e24d7a');
-  fill.color.set(wed ? '#ff9ec0' : '#8a5cf6');
-  key.color.set(wed ? '#ffe8cc' : '#fff1e0');
+  // Wedding: a bright, warm studio (like a rehearsal room); other styles: a dark stage.
+  bg.set(wed ? '#ece5dd' : '#0d0a16');
+  scene.fog.color.copy(bg);
+  floorMat.color.set(wed ? '#f3e2c6' : '#1c1628');
+  floorMat.roughness = wed ? 0.8 : 0.32;
+  floorMat.metalness = wed ? 0 : 0.25;
+  grid.visible = !wed;
+  glowMat.color.set(wed ? '#d9a75c' : '#e24d7a');
+  sparkMat.color.set(wed ? '#e7a2b4' : '#a99fff');
+  sparkMat.blending = wed ? THREE.NormalBlending : THREE.AdditiveBlending;
+  sparkMat.opacity = wed ? 0.7 : 0.55;
+  sparkMat.size = wed ? 0.07 : 0.08;
+  sparkMat.needsUpdate = true;
+  hemi.color.set(wed ? '#ffffff' : '#c9c0ff');
+  hemi.groundColor.set(wed ? '#cdb596' : '#2a1d33');
+  hemi.intensity = wed ? 1.25 : 0.85;
+  key.intensity = wed ? 2.0 : 2.2;
+  key.color.set(wed ? '#fff3e2' : '#fff1e0');
+  rim.color.set(wed ? '#ffd2b8' : '#e24d7a');
+  rim.intensity = wed ? 0.6 : 1.4;
+  fill.color.set(wed ? '#ffe2d0' : '#8a5cf6');
+  renderer.toneMappingExposure = wed ? 0.95 : 1.05;
 }
 
 const resize = () => {
@@ -266,9 +281,11 @@ resize();
 let view = 'front';
 let camTween = null;
 function viewDistance() {
+  // fit the whole line of dancers horizontally, whatever the stage's shape
   const n = project.dancers.length;
-  const aspect = Math.max(0.6, camera.aspect || 1.5);
-  return (4.8 + Math.max(0, n - 2) * 0.75) * Math.max(1, 1.3 / aspect);
+  const halfWidth = ((n - 1) * 1.6) / 2 + 0.9;
+  const hFov = 2 * Math.atan(Math.tan((camera.fov * D2R) / 2) * (camera.aspect || 1.5));
+  return Math.max(4.8, (halfWidth / Math.tan(hFov / 2)) * 1.1 + 1);
 }
 function setView(v, instant = false) {
   view = v;
@@ -783,6 +800,10 @@ $('#dancerList').addEventListener('input', (e) => {
   if (!li || !k) return;
   const d = project.dancers[+li.dataset.i];
   d[k] = k === 'skin' ? +e.target.value : e.target.value;
+  if (k === 'outfit') {
+    d.hair = defaultHair(d.outfit);
+    renderDancers();
+  }
   if (k === 'name') syncCoupleNames();
   syncRigs();
   save();
