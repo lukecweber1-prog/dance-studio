@@ -783,6 +783,11 @@ input[type='range'] {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+.hud-right {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
 .vbtn {
   border: none;
   background: transparent;
@@ -1352,4 +1357,14 @@ body.theme-wedding .count-num {
 }
 body.theme-wedding .count-dots i {
   background: rgba(74, 43, 56, 0.2);
+}
+
+.footer .credits {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+.footer .credits a {
+  color: inherit;
 }

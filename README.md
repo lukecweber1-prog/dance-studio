@@ -12,7 +12,7 @@ A browser app that choreographs a dance to your song and teaches it with animate
   - **Upload** a song file (MP3, WAV, M4A, OGG, even video files). The tempo and first beat are **detected automatically**.
   - **Record** your own music with the microphone, or practise with **no music** using a metronome and a "5, 6, 7, 8" count-in.
   - **TAP** tempo (or press `T`) syncs streamed tracks; you can also enter BPM / start time by hand.
-- **3D teaching stage**: front, follow-along (behind), side and top cameras, a mirror toggle, 0.5× and 0.75× practice speeds and looping of any 8-count.
+- **3D teaching stage**: front, follow-along (behind), side and top cameras, a mirror toggle, a **Mannequin** view (tan drawing-guide bodies with grid lines and an outline, so every step is visible even under the gown), 0.5× and 0.75× practice speeds and looping of any 8-count.
 - **Live cues**: a big count display, the current count's instruction, the full 8-count breakdown and what's next.
 - **Timeline editor**: swap any 8-count for a different move (even from another style); hand-picked moves are pinned 📌 and kept when you **Remix**.
 - **First dance planner**: trim the routine to 1:30–3:00, choose the grand finale, couple names, a rehearsal checklist and safety tips.
@@ -45,6 +45,7 @@ Any static host works, e.g. GitHub Pages or Netlify. Three.js is loaded from the
 | --------------- | ------------------------------------------------------------------------------------------------ |
 | `js/rig.js`     | Procedural human dancer: skeleton + smooth skinned body and clothes, face, hair, hands, a cloth-like skirt; pose format, forward kinematics, automatic foot planting |
 | `js/moves.js`   | Duet move library (lead/follow keyframe tracks, difficulty levels, lifts), solo-to-duet converter, styles, routine generator |
+| `js/model.js`   | Loads the rigged groom/bride glTF models and retargets the driver skeleton's pose onto their bones (with their own foot planting) |
 | `js/engine.js`  | Turns song beat + project into per-dancer poses: easing per style, groove layer, formations, canon, couples, blending between moves |
 | `js/audio.js`   | Music sources (YouTube, SoundCloud, file, Web Audio fallback, clock), microphone recorder, tempo and downbeat detection |
 | `js/main.js`    | Three.js stage, UI, timeline, wedding planner, persistence                                       |
@@ -63,6 +64,15 @@ Limbs are `[raise, direction, twist, bend]` in degrees:
 ```
 
 Every move provides `lead` and `follow` tracks plus a `level` (1–5). Solo material can be partnered with `duet(solo, { hold })`, which mirrors it for the follow. Set `air: 1` and `root.lift` on a pose to lift a dancer off the floor.
+
+## 3D characters
+
+The **Real** look uses two rigged models from `models/` (the Stylized and Mannequin looks are built in code):
+
+- **Groom**: “Man dressed in suit”, made with [MakeHuman](https://www.makehumancommunity.org/) (CC0). Converted from Collada to glTF.
+- **Bride**: “[Casual Woman in Brown Dress Rigged Idle](https://sketchfab.com/3d-models/casual-woman-in-brown-dress-rigged-idle-b38456c89bf94323aa3c079f27e435ce)” by [florah](https://sketchfab.com/florah), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Optimised for the web (simplified mesh, WebP textures, quantised); the brown dress is recoloured ivory in the texture and a floor-length satin skirt is added in code (`js/model.js`).
+
+Models are stored as glTF JSON (`.json`, buffers embedded) with `.webp` textures so they can be served from any static host. Any humanoid glTF with a Mixamo or MakeHuman skeleton can be swapped in: add it to `MODELS` in `js/model.js` (and its bone names to `BONES` if they differ).
 
 ## Notes
 

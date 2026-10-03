@@ -137,12 +137,19 @@
         <div class="stage" id="stage">
           <div class="hud top">
             <div class="hud-chip" id="hudEight">8-count —</div>
+            <div class="hud-right">
             <div class="view-buttons" role="group" aria-label="Camera">
               <button class="vbtn active" data-view="front" title="Watch from the audience">Front</button>
               <button class="vbtn" data-view="back" title="Stand behind the dancers and copy them">Follow</button>
               <button class="vbtn" data-view="side">Side</button>
               <button class="vbtn" data-view="top" title="See the formation from above">Top</button>
               <button class="vbtn" id="btnMirror" title="Flip left/right like a studio mirror">⇋ Mirror</button>
+            </div>
+            <div class="view-buttons look-buttons" role="group" aria-label="Look">
+              <button class="vbtn" data-look="real" title="Real 3D characters (groom & bride models)">Real</button>
+              <button class="vbtn" data-look="outfit" title="Stylized dancers you can dress in “The couple”">Stylized</button>
+              <button class="vbtn" data-look="mannequin" title="Mannequins, so every step and body line is visible">🧍 Mannequin</button>
+            </div>
             </div>
           </div>
           <div class="count-display" id="countDisplay" aria-live="off">
@@ -223,6 +230,7 @@
 
     <footer class="footer">
       StepStudio 3D · Dance safely — warm up, clear the floor, and practise dips on a soft surface first.
+      <br /><small class="credits">3D characters — Groom: “Man dressed in suit”, made with <a href="https://www.makehumancommunity.org/" target="_blank" rel="noopener">MakeHuman</a> (CC0). Bride: “<a href="https://sketchfab.com/3d-models/casual-woman-in-brown-dress-rigged-idle-b38456c89bf94323aa3c079f27e435ce" target="_blank" rel="noopener">Casual Woman in Brown Dress Rigged Idle</a>” by <a href="https://sketchfab.com/florah" target="_blank" rel="noopener">florah</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a> (optimised for the web; dress recoloured white and lengthened into a gown).</small>
     </footer>
 
     <dialog id="movePicker" class="move-picker">

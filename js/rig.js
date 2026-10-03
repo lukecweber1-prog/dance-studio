@@ -114,7 +114,7 @@ function setTorso(obj, [lean, twist, tilt]) {
 const SKIN_TONES = ['#f1c7a5', '#d9a07a', '#b97a56', '#8d5a3b', '#5e3a24'];
 export { SKIN_TONES };
 
-function labelSprite(text, color) {
+export function labelSprite(text, color) {
   const c = document.createElement('canvas');
   c.width = 256;
   c.height = 64;
@@ -146,6 +146,9 @@ function labelSprite(text, color) {
 // pose (limbs hanging straight down), so joints bend like skin instead of
 // showing as separate balls and capsules.
 // ---------------------------------------------------------------------------
+export const HAIR_STYLES = { short: 'Short hair', updo: 'Updo', ponytail: 'Ponytail' };
+export const defaultHair = (outfit) => (outfit === 'dress' ? 'updo' : 'short');
+
 const HAIR_COLORS = ['#2b1d14', '#5a3a22', '#141010', '#8a5a32', '#3b2618', '#b48a5a'];
 
 const smoothstep = (a, b, x) => {
@@ -267,12 +270,12 @@ const TORSO = {
     [0.16, 0.14, 0.095, 0.09, 0.005],
     [0.26, 0.152, 0.11, 0.095, 0.01],
     [0.36, 0.166, 0.122, 0.1, 0.015],
-    [0.45, 0.18, 0.112, 0.1, 0.01],
-    [0.51, 0.183, 0.095, 0.09, 0],
+    [0.45, 0.186, 0.114, 0.102, 0.01],
+    [0.51, 0.19, 0.097, 0.092, 0],
     [0.545, 0.155, 0.08, 0.08, -0.005],
     [0.57, 0.118, 0.07, 0.07, -0.006],
-    [0.6, 0.06, 0.057, 0.057, 0],
-    [0.66, 0.052, 0.05, 0.05, 0.005],
+    [0.6, 0.065, 0.06, 0.06, 0],
+    [0.66, 0.058, 0.055, 0.055, 0.005],
     [0.73, 0.045, 0.045, 0.045, 0.01],
     [0.75, 0.01, 0.01, 0.01, 0.01]
   ],
@@ -289,8 +292,8 @@ const TORSO = {
     [0.51, 0.168, 0.085, 0.08, 0],
     [0.545, 0.143, 0.074, 0.074, -0.005],
     [0.57, 0.105, 0.064, 0.064, -0.006],
-    [0.6, 0.052, 0.049, 0.049, 0],
-    [0.66, 0.046, 0.045, 0.045, 0.005],
+    [0.6, 0.055, 0.051, 0.051, 0],
+    [0.66, 0.049, 0.047, 0.047, 0.005],
     [0.73, 0.04, 0.04, 0.04, 0.01],
     [0.75, 0.01, 0.01, 0.01, 0.01]
   ]
@@ -336,30 +339,33 @@ function torsoPanel(fem, loose, y0, y1, thA, thB, out) {
 
 // Limb radii by distance below the joint: [d, r]
 const ARM = [
-  [-0.065, 0.012],
-  [-0.045, 0.045],
-  [-0.01, 0.057],
-  [0.05, 0.052],
-  [0.14, 0.046],
-  [0.26, 0.038],
-  [0.3, 0.04],
-  [0.36, 0.041],
-  [0.47, 0.031],
-  [0.53, 0.026],
+  [-0.065, 0.014],
+  [-0.045, 0.049],
+  [-0.01, 0.063],
+  [0.05, 0.057],
+  [0.12, 0.05],
+  [0.2, 0.046],
+  [0.26, 0.039],
+  [0.3, 0.042],
+  [0.35, 0.045],
+  [0.43, 0.036],
+  [0.5, 0.029],
+  [0.53, 0.027],
   [0.548, 0.012]
 ];
 const LEG = [
   [-0.085, 0.02],
-  [-0.06, 0.074],
-  [0.0, 0.088],
-  [0.1, 0.08],
-  [0.25, 0.066],
-  [0.41, 0.05],
-  [0.44, 0.05],
-  [0.53, 0.056],
-  [0.63, 0.048],
-  [0.78, 0.034],
-  [0.84, 0.032],
+  [-0.06, 0.08],
+  [0.0, 0.1],
+  [0.1, 0.093],
+  [0.25, 0.077],
+  [0.38, 0.056],
+  [0.43, 0.052],
+  [0.47, 0.055],
+  [0.55, 0.067],
+  [0.64, 0.055],
+  [0.76, 0.038],
+  [0.84, 0.033],
   [0.875, 0.012]
 ];
 const limbProf = (table, d) => profileAt(table.map(([dd, r]) => [dd, r]), d)[0];
@@ -426,6 +432,67 @@ function hairGeometry(R, fem, scale, line) {
   return g;
 }
 
+// ---------------------------------------------------------------------------
+// Mannequin look: tan body with drawing-guide grid lines, joint bands and a toon outline
+// ---------------------------------------------------------------------------
+const MANNEQUIN = { tan: '#c98e4e', line: '#f0dcc2', outline: '#16110c' };
+
+/**
+ * Tan material that draws latitude rings, longitude lines around (cx, cz) and wider bands at the given
+ * heights, all in bind-pose space so the lines stay painted on the body as it moves.
+ */
+function gridMaterial({ cx = 0, cz = 0, bands = [], grid = true } = {}) {
+  const mat = new THREE.MeshStandardMaterial({ color: MANNEQUIN.tan, roughness: 0.6, metalness: 0 });
+  const b = [...bands, -99, -99, -99, -99].slice(0, 4);
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uCenter = { value: new THREE.Vector2(cx, cz) };
+    sh.uniforms.uBands = { value: new THREE.Vector4(...b) };
+    sh.uniforms.uGrid = { value: grid ? 1 : 0 };
+    sh.uniforms.uLine = { value: new THREE.Color(MANNEQUIN.line) };
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vBind;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBind = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vBind;\nuniform vec2 uCenter;\nuniform vec4 uBands;\nuniform float uGrid;\nuniform vec3 uLine;')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        {
+          float ry = vBind.y * 7.0;
+          float lat = 1.0 - smoothstep(0.035, 0.035 + fwidth(ry), abs(fract(ry + 0.5) - 0.5));
+          float a = atan(vBind.z - uCenter.y, vBind.x - uCenter.x) * 0.9549297; // 6 lines around
+          float lon = 1.0 - smoothstep(0.03, 0.03 + min(fwidth(a), 0.2), abs(fract(a + 0.5) - 0.5));
+          float band = 0.0;
+          for (int i = 0; i < 4; i++) band = max(band, 1.0 - smoothstep(0.006, 0.006 + fwidth(vBind.y), abs(vBind.y - uBands[i])));
+          float l = max(max(lat, lon) * 0.6 * uGrid, band * 0.9);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uLine, l);
+        }`
+      );
+  };
+  mat.customProgramCacheKey = () => 'mannequin-grid';
+  return mat;
+}
+
+/** Inverted-hull outline: back faces pushed out along the (skinned) normal, drawn dark. */
+function outlineMaterial() {
+  const mat = new THREE.MeshBasicMaterial({ color: MANNEQUIN.outline, side: THREE.BackSide });
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace(
+      '#include <project_vertex>',
+      `#include <project_vertex>
+      #ifdef USE_SKINNING
+        vec3 oN = objectNormal;
+      #else
+        vec3 oN = normal;
+      #endif
+      mvPosition.xyz += normalize(normalMatrix * oN) * 0.006;
+      gl_Position = projectionMatrix * mvPosition;`
+    );
+  };
+  mat.customProgramCacheKey = () => 'mannequin-outline';
+  return mat;
+}
+
 function mixColor(a, b, t) {
   return new THREE.Color(a).lerp(new THREE.Color(b), t);
 }
@@ -434,16 +501,18 @@ export class Dancer {
   /**
    * outfit: 'pants' | 'suit' | 'dress'. variant picks hair & build for casual dancers.
    */
-  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1], variant = 0 } = {}) {
+  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1], variant = 0, look = 'outfit', hair, driverOnly = false } = {}) {
     this.root = new THREE.Group();
     this.outfit = outfit;
+    this.mannequin = look === 'mannequin';
+    this.driverOnly = driverOnly; // just the skeleton, used to pose an imported 3D model
     this.fem = outfit === 'dress' || (outfit === 'pants' && variant % 2 === 1);
-    this.hairStyle = outfit === 'dress' ? 'updo' : outfit === 'suit' ? 'short' : this.fem ? 'ponytail' : 'short';
+    this.hairStyle = HAIR_STYLES[hair] ? hair : outfit === 'pants' && this.fem ? 'ponytail' : defaultHair(outfit);
     this.hairColor = outfit === 'suit' ? '#5a3a22' : outfit === 'dress' ? '#2a1a12' : HAIR_COLORS[(variant * 3 + 1) % HAIR_COLORS.length];
-    this._build(color, outfit, skin);
+    this._build(color, this.mannequin ? 'none' : outfit, skin);
     this.root.scale.setScalar(this.fem ? 0.94 : 0.98);
     this.blink = { next: performance.now() / 1000 + 1 + Math.random() * 3, until: 0 };
-    this.setLabel(name, color);
+    if (!driverOnly) this.setLabel(name, color);
     this.setPose(P());
   }
 
@@ -483,6 +552,12 @@ export class Dancer {
     const B = () => new THREE.Bone();
     const fem = this.fem;
     const m = (this.materials = this._materials(color, outfit, skinColor));
+    if (this.mannequin) {
+      m.skin = gridMaterial({ grid: false });
+      m.shoe = m.skin;
+      m.top = m.skin;
+      this.outlineMat = outlineMaterial();
+    }
 
     // ----- skeleton (same joint layout the poses were authored for) -----
     const pelvis = (this.pelvis = B());
@@ -531,21 +606,28 @@ export class Dancer {
     pelvis.position.y = HIP_H;
     this.root.updateMatrixWorld(true);
     const skeleton = (this.skeleton = new THREE.Skeleton(bones));
+    if (this.driverOnly) return;
     const wp = (o) => o.getWorldPosition(new THREE.Vector3());
 
-    const skinned = (geo, keys) => {
-      const mesh = new THREE.SkinnedMesh(geo, keys.map((k) => m[k]));
+    const skinned = (geo, keys, guide = {}) => {
+      const mesh = new THREE.SkinnedMesh(geo, this.mannequin ? gridMaterial(guide) : keys.map((k) => m[k]));
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
       this.root.add(mesh);
       mesh.bind(skeleton);
+      if (this.mannequin) {
+        const line = new THREE.SkinnedMesh(geo, this.outlineMat);
+        line.frustumCulled = false;
+        this.root.add(line);
+        line.bind(skeleton);
+      }
       return mesh;
     };
 
     // ----- torso -----
     const T = TORSO[fem ? 'f' : 'm'];
-    const looseTop = outfit === 'suit' ? 0.012 : outfit === 'pants' ? 0.006 : 0.004;
+    const looseTop = outfit === 'suit' ? 0.012 : outfit === 'pants' ? 0.006 : outfit === 'dress' ? 0.004 : 0;
     const torsoKeys = outfit === 'suit' ? ['jacket', 'shirt', 'skin'] : outfit === 'dress' ? ['dress', 'skin'] : ['top', 'bottom', 'skin'];
     const torsoRegion = (yl, phi) => {
       if (outfit === 'suit') {
@@ -588,7 +670,7 @@ export class Dancer {
         return w;
       }
     });
-    skinned(torsoGeo, torsoKeys);
+    skinned(torsoGeo, torsoKeys, { bands: [HIP_H + 0.07, HIP_H + 0.6] });
 
     // ----- arms -----
     for (const side of [1, -1]) {
@@ -621,7 +703,7 @@ export class Dancer {
         },
         weights: (y) => two(y, S.y - UPPER_ARM, 0.035, shI, elI)
       });
-      skinned(geo, keys);
+      skinned(geo, keys, { cx: S.x, cz: S.z, bands: [S.y - UPPER_ARM, S.y - 0.525] });
       this._hand(side, m.skin);
     }
 
@@ -654,11 +736,12 @@ export class Dancer {
           return d > 0.64 ? two(-d, -0.845, 0.02, kneeI, ankI) : two(-d, -THIGH, 0.04, hipI, kneeI);
         }
       });
-      skinned(geo, [key]);
+      skinned(geo, [key], { cx: H.x, cz: H.z, bands: [H.y - THIGH, H.y - 0.835] });
       this._shoe(side, m.shoe);
     }
 
     this._buildHead(m);
+    if (this.mannequin) return;
     if (outfit === 'suit') this._suitDetails(m);
     if (outfit === 'dress') this._buildSkirt(m.dress);
   }
@@ -671,24 +754,47 @@ export class Dancer {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     parent.add(mesh);
+    if (this.mannequin) {
+      const line = new THREE.Mesh(geo, this.outlineMat);
+      line.position.copy(mesh.position);
+      line.rotation.copy(mesh.rotation);
+      line.scale.copy(mesh.scale);
+      parent.add(line);
+    }
     return mesh;
   }
 
   _hand(side, skin) {
+    // palm faces the body (-x on the left arm), fingers hang down, thumb forward;
+    // each finger has two segments with a relaxed curl towards the palm
     const g = new THREE.Group();
     g.position.y = -FOREARM + 0.004;
     this.arms[side].el.add(g);
     const sph = new THREE.SphereGeometry(1, 20, 14);
     const k = this.fem ? 0.9 : 1;
-    // palm faces the body (-x on the left arm), fingers hang down, thumb forward
-    this._rigid(sph, skin, g, [0, -0.045 * k, 0.002], [0.017 * k, 0.045 * k, 0.04 * k]);
-    const fing = new THREE.CapsuleGeometry(0.0078 * k, 0.04 * k, 4, 10);
-    [0.026, 0.009, -0.008, -0.024].forEach((z, i) => {
-      const len = [0.95, 1.05, 1, 0.85][i];
-      const f = this._rigid(fing, skin, g, [-side * 0.004, -0.098 * k * len, z * k], [1, len, 1], [0, 0, side * 0.18]);
-      f.position.y += 0.004 * i;
-    });
-    this._rigid(new THREE.CapsuleGeometry(0.0088 * k, 0.03 * k, 4, 10), skin, g, [-side * 0.01, -0.052 * k, 0.04 * k], null, [0.55, 0, side * 0.35]);
+    this._rigid(sph, skin, g, [0, -0.048 * k, 0.002], [0.016 * k, 0.05 * k, 0.041 * k]);
+    const seg = (len, r) => new THREE.CapsuleGeometry(r * k, len * k, 4, 8);
+    const finger = (z, len, spread, curl) => {
+      const base = new THREE.Group();
+      base.position.set(0, -0.092 * k, z * k);
+      base.rotation.set(-spread, 0, -side * curl);
+      g.add(base);
+      this._rigid(seg(len * 0.55, 0.0082), skin, base, [0, -len * 0.3 * k, 0]);
+      const tip = new THREE.Group();
+      tip.position.y = -len * 0.6 * k;
+      tip.rotation.z = -side * curl * 1.2;
+      base.add(tip);
+      this._rigid(seg(len * 0.45, 0.0074), skin, tip, [0, -len * 0.26 * k, 0]);
+    };
+    finger(0.027, 0.046, 0.16, 0.22);
+    finger(0.009, 0.052, 0.05, 0.25);
+    finger(-0.009, 0.049, -0.05, 0.28);
+    finger(-0.026, 0.04, -0.18, 0.32);
+    const thumb = new THREE.Group();
+    thumb.position.set(-side * 0.006, -0.03 * k, 0.036 * k);
+    thumb.rotation.set(0.75, 0, -side * 0.35);
+    g.add(thumb);
+    this._rigid(seg(0.034, 0.009), skin, thumb, [0, -0.022 * k, 0]);
   }
 
   _shoe(side, mat) {
@@ -701,8 +807,10 @@ export class Dancer {
       p.setY(i, y * (z > 0.3 ? 0.75 : 1)); // lower toe box
     }
     g.computeVertexNormals();
-    const k = this.fem ? 0.88 : 1;
-    this._rigid(g, mat, this.legs[side].ankle, [0, -ANKLE_TO_SOLE + 0.055 * 0.55, 0.045], [0.047 * k, 0.055, 0.13 * k]);
+    // bare mannequin feet are slimmer and lower than shoes
+    const k = (this.fem ? 0.88 : 1) * (this.mannequin ? 0.88 : 1);
+    const h = this.mannequin ? 0.048 : 0.055;
+    this._rigid(g, mat, this.legs[side].ankle, [0, -ANKLE_TO_SOLE + h * 0.55, 0.045], [0.047 * k, h, 0.13 * k]);
   }
 
   _buildHead(m) {
@@ -711,7 +819,7 @@ export class Dancer {
     const g = new THREE.Group();
     g.position.set(0, 0.082, 0.008);
     this.head.add(g);
-    this._rigid(headGeometry(R, fem), m.skin, g);
+    this._rigid(headGeometry(R, fem), this.mannequin ? gridMaterial({ bands: [-R * 0.75] }) : m.skin, g);
     const surf = (ux, uy) => {
       const uz = Math.sqrt(Math.max(0, 1 - ux * ux - uy * uy));
       const [x, y, z] = headShape(ux, uy, uz, fem);
@@ -721,6 +829,10 @@ export class Dancer {
     // eyes
     this.eyes = [];
     for (const s of [1, -1]) {
+      // ear
+      const e = surf(0.985 * s, 0.02);
+      this._rigid(sph, m.skin, g, [e.x + 0.003 * s, e.y, e.z - 0.006], [0.008, 0.026, 0.017], [0, -0.35 * s, 0]);
+      if (this.mannequin) continue; // the mannequin is faceless apart from ears and nose
       const c = surf(0.35 * s, 0.09);
       c.z -= 0.0095;
       const eye = new THREE.Group();
@@ -739,15 +851,13 @@ export class Dancer {
       // brow
       const b = surf(0.37 * s, 0.31);
       this._rigid(new THREE.CapsuleGeometry(fem ? 0.0024 : 0.0034, 0.024, 4, 8), m.brow, g, [b.x, b.y, b.z + 0.001], null, [0, 0, Math.PI / 2 + s * (fem ? 0.2 : 0.1)]);
-      // ear
-      const e = surf(0.985 * s, 0.02);
-      this._rigid(sph, m.skin, g, [e.x + 0.003 * s, e.y, e.z - 0.006], [0.008, 0.026, 0.017], [0, -0.35 * s, 0]);
     }
     // nose
     const nb = surf(0, -0.04);
     this._rigid(sph, m.skin, g, [nb.x, nb.y, nb.z - 0.004], [0.0105, 0.027, 0.016], [-0.25, 0, 0]);
     const nt = surf(0, -0.2);
     this._rigid(sph, m.skin, g, [nt.x, nt.y, nt.z + 0.008], [0.0115, 0.0105, 0.011]);
+    if (this.mannequin) return;
     for (const s of [1, -1]) this._rigid(sph, m.skin, g, [0.011 * s, nt.y - 0.002, nt.z + 0.001], [0.0078, 0.0068, 0.0075]);
     // lips
     const ul = surf(0, -0.43);
@@ -937,7 +1047,7 @@ export class Dancer {
       b.next = now + 2.5 + Math.random() * 3.5;
     }
     const sy = now < b.until ? 0.15 : 1;
-    for (const e of this.eyes) e.scale.y = sy;
+    for (const e of this.eyes || []) e.scale.y = sy;
   }
 
   setLabel(name, color) {

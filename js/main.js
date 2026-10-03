@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { Dancer, SKIN_TONES } from './rig.js';
+import { Dancer, SKIN_TONES, HAIR_STYLES, defaultHair } from './rig.js';
 import { STYLES, STYLE_ORDER, MOVES, LEVELS, generateChoreo, defaultFinale } from './moves.js';
 import { evaluate } from './engine.js';
+import { ModelDancer, loadModel, MODELS } from './model.js';
 import { parseMusicLink, audioContext, FileSource, BufferSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
@@ -35,7 +36,7 @@ const WEDDING_CHECKLIST = [
 function weddingDancers(names = ['Partner A', 'Partner B']) {
   return [
     { id: uid(), name: names[0], color: WEDDING_COLORS.lead, role: 'lead', outfit: 'suit', hair: 'short', skin: 1 },
-    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', hair: 'long', skin: 0 }
+    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', hair: 'updo', skin: 0 }
   ];
 }
 
@@ -49,6 +50,7 @@ function defaultProject() {
     seed: 20261002,
     dancers: weddingDancers(),
     difficulty: 2,
+    look: 'real',
     energy: 1,
     music: { kind: 'none' },
     wedding: { trim: 150, finale: 'dip', checklist: {} },
@@ -79,6 +81,7 @@ function sanitize(p) {
       color: /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : d.dancers[i].color,
       role,
       outfit: ['pants', 'suit', 'dress'].includes(x.outfit) ? x.outfit : d.dancers[i].outfit,
+      hair: HAIR_STYLES[x.hair] ? x.hair : x.hair === 'long' || x.hair === 'bun' ? 'updo' : null,
       skin: Math.max(0, Math.min(SKIN_TONES.length - 1, x.skin | 0))
     };
   });
@@ -88,6 +91,7 @@ function sanitize(p) {
   out.bpm = Math.max(40, Math.min(220, +out.bpm || d.bpm));
   out.offset = Math.max(0, +out.offset || 0);
   out.duration = Math.max(20, +out.duration || d.duration);
+  out.look = ['real', 'outfit', 'mannequin'].includes(out.look) ? out.look : 'real';
   for (const k of ['formation', 'canon', 'mirrorAlt']) delete out[k];
   return out;
 }
@@ -304,6 +308,23 @@ function setView(v, instant = false) {
   camTween = { from: camera.position.clone(), to, t0: performance.now(), dur: 650 };
 }
 $$('.vbtn[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+function reflectLook() {
+  $$('[data-look]').forEach((b) => b.classList.toggle('active', b.dataset.look === project.look));
+}
+const LOOK_TOASTS = {
+  real: 'Real characters — your groom and bride models',
+  outfit: 'Stylized dancers — choose outfits, hair and skin tones in “The couple”',
+  mannequin: 'Mannequin view — see every step and line of the body'
+};
+$$('[data-look]').forEach((b) =>
+  b.addEventListener('click', () => {
+    project.look = b.dataset.look;
+    reflectLook();
+    syncRigs();
+    save();
+    toast(LOOK_TOASTS[project.look]);
+  })
+);
 $('#btnMirror').addEventListener('click', (e) => {
   stageGroup.scale.x *= -1;
   e.currentTarget.classList.toggle('active', stageGroup.scale.x < 0);
@@ -312,16 +333,43 @@ $('#btnMirror').addEventListener('click', (e) => {
 
 // dancers in the scene
 let rigs = [];
+// Real look: imported, rigged characters. Until a model has loaded (or if it fails) the built dancer stands in.
+const modelKind = (d) => (d.outfit === 'suit' ? 'groom' : d.outfit === 'dress' ? 'bride' : d.role === 'follow' ? 'bride' : 'groom');
+const loadedModels = {};
+const failedModels = {};
+function requestModel(kind) {
+  if (loadedModels[kind] || failedModels[kind] || requestModel[kind]) return;
+  requestModel[kind] = true;
+  loadModel(kind)
+    .then((g) => {
+      loadedModels[kind] = g;
+      syncRigs();
+    })
+    .catch((e) => {
+      console.warn('Model failed to load', kind, e);
+      failedModels[kind] = true;
+      toast('Couldn’t load the 3D character — showing the built dancers instead');
+    });
+}
+function makeDancer(d, i) {
+  if (project.look === 'real') {
+    const kind = modelKind(d);
+    if (loadedModels[kind]) return new ModelDancer({ gltf: loadedModels[kind], kind, name: d.name, color: d.color, outfit: d.outfit });
+    requestModel(kind);
+  }
+  return new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i, look: project.look === 'mannequin' ? 'mannequin' : 'outfit', hair: d.hair });
+}
 function syncRigs() {
   project.dancers.forEach((d, i) => {
-    const k = [d.color, d.outfit, d.skin, i].join('|');
+    const real = project.look === 'real' ? `${modelKind(d)}:${!!loadedModels[modelKind(d)]}` : '';
+    const k = [d.color, d.outfit, d.skin, d.hair, i, project.look, real].join('|');
     let r = rigs[i];
     if (!r || r.key !== k) {
       if (r) {
         stageGroup.remove(r.dancer.root);
         r.dancer.dispose();
       }
-      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i }) };
+      r = rigs[i] = { key: k, name: d.name, dancer: makeDancer(d, i) };
       stageGroup.add(r.dancer.root);
     } else if (r.name !== d.name) {
       r.dancer.setLabel(d.name, d.color);
@@ -789,6 +837,7 @@ function renderDancers() {
       <span class="role-tag ${d.role}">${d.role === 'lead' ? 'Lead' : 'Follow'}</span>
       <div class="d-opts">
         <select data-k="outfit" title="Outfit"><option value="suit" ${d.outfit === 'suit' ? 'selected' : ''}>Suit</option><option value="dress" ${d.outfit === 'dress' ? 'selected' : ''}>Gown</option><option value="pants" ${d.outfit === 'pants' ? 'selected' : ''}>Casual</option></select>
+        <select data-k="hair" title="Hair">${Object.entries(HAIR_STYLES).map(([v, n]) => `<option value="${v}" ${(d.hair || defaultHair(d.outfit)) === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
         <select data-k="skin" title="Skin tone">${SKIN_TONES.map((_, s) => `<option value="${s}" ${d.skin === s ? 'selected' : ''}>Skin tone ${s + 1}</option>`).join('')}</select>
       </div></li>`
     )
@@ -1182,6 +1231,7 @@ function boot() {
   reflectTempo();
   $('#energy').value = project.energy;
   renderDifficulty();
+  reflectLook();
   renderStyles();
   renderDancers();
   renderSidePanels();
