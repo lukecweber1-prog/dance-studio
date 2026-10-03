@@ -999,6 +999,68 @@ const country = [
       k(8, { ...closed.follow })
     ]
   },
+  // ----- the pretzel (from a country swing tutorial): two linked 8-counts -----
+  // Couple space: facing the audience means root.rot -90 for the lead and +90 for the follow.
+  {
+    id: 'cs-pretzel',
+    name: 'Pretzel — Wrap',
+    level: 3,
+    partner: true,
+    then: 'cs-pretzel-out',
+    desc: 'From a two-hand hold the lead turns under his own arm and tucks his right hand behind his back, ending side by side with the follow on his left, both facing out.',
+    cues: ['Two hands — rock back', 'Replace', 'Lead lifts his left hand', 'Lead turns under…', '…right hand goes behind his back', 'Side by side — step', 'Step', 'Quick-quick'],
+    lead: [
+      k(0, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1 } }),
+      k(1, { lArm: A.twoHand, rArm: A.twoHand, lLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: -0.16 } }),
+      k(2, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1 } }),
+      k(3, { lArm: A.turnHand, rArm: [35, -30, -60, 100], lLeg: L.fwd, squat: 6, root: { x: -0.02, rot: -150 } }),
+      k(4, { lArm: A.turnHand, rArm: [35, -70, -90, 110], squat: 6, root: { x: 0.04, rot: -330 } }),
+      k(5, { lArm: [30, 60, 0, 60], rArm: [35, -70, -90, 110], squat: 10, head: [0, 20, 0], root: { x: 0.08, rot: -450 } }),
+      k(6, { lArm: [30, 60, 0, 60], rArm: [35, -70, -90, 110], rLeg: L.side, squat: 12, head: [0, 25, 0], root: { x: 0.06, rot: -450 } }),
+      k(7, { lArm: [30, 60, 0, 60], rArm: [35, -70, -90, 110], lLeg: L.back, squat: 12, head: [0, 25, 0], root: { x: 0.08, rot: -450 } }),
+      k(8, { lArm: [30, 60, 0, 60], rArm: [35, -70, -90, 110], squat: 10, head: [0, 20, 0], root: { x: 0.08, rot: -450 } })
+    ],
+    follow: [
+      k(0, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1 } }),
+      k(1, { lArm: A.twoHandF, rArm: A.twoHandF, rLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: 0.16 } }),
+      k(2, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1 } }),
+      k(3, { rArm: [110, 40, 0, 40], lArm: A.lowV, squat: 6, root: { x: 0.04, rot: 20 } }),
+      k(4, { rArm: [70, 30, 0, 40], lArm: A.hip, squat: 6, root: { x: -0.02, rot: 60 } }),
+      k(5, { rArm: [25, 25, 0, 35], lArm: A.hip, squat: 10, head: [0, -20, 0], root: { x: -0.08, rot: 90 } }),
+      k(6, { rArm: [25, 25, 0, 35], lArm: A.hip, lLeg: L.side, squat: 12, head: [0, -25, 0], root: { x: -0.06, rot: 90 } }),
+      k(7, { rArm: [25, 25, 0, 35], lArm: A.hip, rLeg: L.back, squat: 12, head: [0, -25, 0], root: { x: -0.08, rot: 90 } }),
+      k(8, { rArm: [25, 25, 0, 35], lArm: A.hip, squat: 10, head: [0, -20, 0], root: { x: -0.08, rot: 90 } })
+    ]
+  },
+  {
+    id: 'cs-pretzel-out',
+    name: 'Pretzel — Unwind & Spin Out',
+    level: 3,
+    partner: true,
+    chained: true, // only ever follows the wrap
+    desc: 'The follow turns under so both face away in the pretzel knot, they turn back to the front with the lead’s arm over his head, then he spins her out to an open hold.',
+    cues: ['Lead lifts the joined hands', 'Follow turns under…', 'Pretzel! Both face away', 'Hold the wrap', 'Turn back to the front', 'Arm over his head — unwind', 'Spin her out!', 'Open hold'],
+    lead: [
+      k(0, { lArm: [30, 60, 0, 60], rArm: [35, -70, -90, 110], squat: 10, root: { x: 0.08, rot: -450 } }),
+      k(1, { lArm: A.turnHand, rArm: [35, -70, -90, 110], squat: 8, root: { x: 0.06, rot: -470 } }),
+      k(2, { lArm: [100, 70, 0, 70], rArm: [35, -70, -90, 110], squat: 8, root: { x: 0.05, rot: -630 } }),
+      k(3.5, { lArm: [95, 75, 0, 75], rArm: [35, -70, -90, 110], squat: 10, head: [0, -20, 0], root: { x: 0.05, rot: -630 } }),
+      k(5, { lArm: [165, 20, 0, 95], rArm: [35, -70, -90, 110], squat: 8, root: { x: 0.04, rot: -810 } }),
+      k(6, { lArm: A.turnHand, rArm: A.down, squat: 8, root: { x: 0, rot: -790 } }),
+      k(7, { lArm: A.oneHand, rArm: A.down, squat: 10, root: { x: -0.12, rot: -720 } }),
+      k(8, { lArm: A.oneHand, rArm: A.down, squat: 8, root: { x: -0.14, rot: -720 } })
+    ],
+    follow: [
+      k(0, { rArm: [25, 25, 0, 35], lArm: A.hip, squat: 10, root: { x: -0.08, rot: 90 } }),
+      k(1, { rArm: A.turnHand, lArm: A.hip, lFoot: 20, rFoot: 20, root: { x: -0.06, rot: 150, lift: 0.02 } }),
+      k(2, { rArm: [60, 40, 0, 60], lArm: [40, -60, -90, 110], squat: 6, root: { x: -0.05, rot: 270 } }),
+      k(3.5, { rArm: [60, 40, 0, 60], lArm: [40, -60, -90, 110], squat: 10, head: [0, 20, 0], root: { x: -0.05, rot: 270 } }),
+      k(5, { rArm: [120, 30, 0, 60], lArm: A.hip, squat: 8, root: { x: -0.04, rot: 450 } }),
+      k(6, { rArm: A.turnHand, lArm: A.side, lFoot: 25, rFoot: 25, root: { x: 0.18, rot: 650, lift: 0.02 } }),
+      k(7, { rArm: A.oneHandF, lArm: [120, 10, 0, 10], root: { x: 0.32, rot: 720 } }),
+      k(8, { rArm: A.oneHandF, lArm: A.lowV, squat: 8, root: { x: 0.3, rot: 720 } })
+    ]
+  },
   waistLift('cs-cradle', 'Cradle Carry Spin', 4, 'Lead scoops the follow up into his arms — the bridal carry — and spins. Swing her legs out wide for the guests.', {
     air: 1,
     pelvis: [-80, 90, 0],
@@ -1293,14 +1355,19 @@ export function generateChoreo(styleId, count, { seed = Date.now(), finaleId, di
   const style = STYLES[styleId];
   const rand = rng(seed);
   const regular = style.moves.filter((m) => !m.finale);
-  let avail = regular.filter((m) => m.level <= difficulty);
+  let avail = regular.filter((m) => m.level <= difficulty && !m.chained);
   if (!avail.length) avail = regular.filter((m) => m.level === Math.min(...regular.map((x) => x.level)));
   const basics = avail.filter((m) => m.basic).length ? avail.filter((m) => m.basic) : avail;
   const finale = (style.finales.includes(finaleId) && MOVES[finaleId]) || MOVES[defaultFinale(styleId, difficulty)];
   const top = Math.max(...avail.map((m) => m.level));
   const recent = [];
 
+  let noChain = false; // near the end there's no room for a two-part move's second half
   const pick = (pool, weight) => {
+    if (noChain && pool.some((m) => !m.then)) pool = pool.filter((m) => !m.then);
+    // long two-part moves are special: not again within the last eight 8-counts
+    const spaced = pool.filter((m) => !m.then || !out.slice(-8).some((c) => c.move === m.id));
+    if (spaced.length) pool = spaced;
     const fresh = pool.filter((m) => !recent.includes(m.id));
     const list = fresh.length ? fresh : pool;
     const total = list.reduce((a, m) => a + weight(m), 0);
@@ -1315,7 +1382,10 @@ export function generateChoreo(styleId, count, { seed = Date.now(), finaleId, di
     const pos = i % 4;
     const section = i < 4 ? 'Opening' : SECTIONS[Math.floor(i / 4 - 1) % SECTIONS.length];
     let m;
-    if (i < 2 || pos === 0) m = pick(basics, () => 1);
+    noChain = i >= count - 2;
+    const prev = out.length ? MOVES[out[out.length - 1].move] : null;
+    if (prev && prev.then && MOVES[prev.then]) m = MOVES[prev.then]; // two-part moves stay together
+    else if (i < 2 || pos === 0) m = pick(basics, () => 1);
     else if (pos === 3) m = pick(avail.filter((x) => x.level >= Math.max(1, top - 1)), (x) => (x.level === top ? 3 : 1));
     else {
       // between the peaks keep to partnering the couple can recover with — no back-to-back lifts
