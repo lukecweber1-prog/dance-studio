@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Dancer, SKIN_TONES } from './rig.js';
+import { Dancer, SKIN_TONES, HAIR_STYLES, defaultHair } from './rig.js';
 import { STYLES, STYLE_ORDER, MOVES, generateChoreo } from './moves.js';
 import { evaluate, FORMATIONS } from './engine.js';
 import { parseMusicLink, FileSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
@@ -9,7 +9,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const D2R = Math.PI / 180;
 const PALETTE = ['#e24d7a', '#8a5cf6', '#38bdf8', '#f59e0b', '#22c55e', '#f472b6', '#14b8a6', '#ef4444'];
-const WEDDING_COLORS = { lead: '#26345e', follow: '#f6efe3' };
+const WEDDING_COLORS = { lead: '#2c2c31', follow: '#7e5a4e' };
 const STORE_KEY = 'stepstudio.project.v1';
 const HERO_KEY = 'stepstudio.heroHidden';
 const MAX_DANCERS = 8;
@@ -35,8 +35,8 @@ const WEDDING_CHECKLIST = [
 // ---------------------------------------------------------------------------
 function weddingDancers(names = ['Partner A', 'Partner B']) {
   return [
-    { id: uid(), name: names[0], color: WEDDING_COLORS.lead, role: 'lead', outfit: 'suit', skin: 1 },
-    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', skin: 0 }
+    { id: uid(), name: names[0], color: WEDDING_COLORS.lead, role: 'lead', outfit: 'suit', hair: 'short', skin: 1 },
+    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', hair: 'long', skin: 0 }
   ];
 }
 
@@ -78,6 +78,7 @@ function sanitize(p) {
     color: /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : PALETTE[i % PALETTE.length],
     role: x.role === 'follow' ? 'follow' : 'lead',
     outfit: ['pants', 'suit', 'dress'].includes(x.outfit) ? x.outfit : 'pants',
+    hair: HAIR_STYLES[x.hair] ? x.hair : defaultHair(x.outfit),
     skin: Math.max(0, Math.min(SKIN_TONES.length - 1, x.skin | 0))
   }));
   out.counts = Array.isArray(out.counts) ? out.counts.filter((c) => c && MOVES[c.move]) : [];
@@ -230,13 +231,28 @@ scene.add(stageGroup);
 function applyTheme() {
   const wed = project.style === 'wedding';
   document.body.classList.toggle('theme-wedding', wed);
-  floorMat.color.set(wed ? '#2a1e22' : '#1c1628');
-  glowMat.color.set(wed ? '#e8c47a' : '#e24d7a');
-  sparkMat.color.set(wed ? '#ffd9a0' : '#a99fff');
-  sparkMat.size = wed ? 0.11 : 0.08;
-  rim.color.set(wed ? '#ffb38a' : '#e24d7a');
-  fill.color.set(wed ? '#ff9ec0' : '#8a5cf6');
-  key.color.set(wed ? '#ffe8cc' : '#fff1e0');
+  // Wedding: a bright, warm studio (like a rehearsal room); other styles: a dark stage.
+  bg.set(wed ? '#ece5dd' : '#0d0a16');
+  scene.fog.color.copy(bg);
+  floorMat.color.set(wed ? '#f3e2c6' : '#1c1628');
+  floorMat.roughness = wed ? 0.8 : 0.32;
+  floorMat.metalness = wed ? 0 : 0.25;
+  grid.visible = !wed;
+  glowMat.color.set(wed ? '#d9a75c' : '#e24d7a');
+  sparkMat.color.set(wed ? '#e7a2b4' : '#a99fff');
+  sparkMat.blending = wed ? THREE.NormalBlending : THREE.AdditiveBlending;
+  sparkMat.opacity = wed ? 0.7 : 0.55;
+  sparkMat.size = wed ? 0.07 : 0.08;
+  sparkMat.needsUpdate = true;
+  hemi.color.set(wed ? '#ffffff' : '#c9c0ff');
+  hemi.groundColor.set(wed ? '#cdb596' : '#2a1d33');
+  hemi.intensity = wed ? 1.25 : 0.85;
+  key.intensity = wed ? 2.0 : 2.2;
+  key.color.set(wed ? '#fff3e2' : '#fff1e0');
+  rim.color.set(wed ? '#ffd2b8' : '#e24d7a');
+  rim.intensity = wed ? 0.6 : 1.4;
+  fill.color.set(wed ? '#ffe2d0' : '#8a5cf6');
+  renderer.toneMappingExposure = wed ? 0.95 : 1.05;
 }
 
 const resize = () => {
@@ -253,9 +269,11 @@ resize();
 let view = 'front';
 let camTween = null;
 function viewDistance() {
+  // fit the whole line of dancers horizontally, whatever the stage's shape
   const n = project.dancers.length;
-  const aspect = Math.max(0.6, camera.aspect || 1.5);
-  return (4.8 + Math.max(0, n - 2) * 0.75) * Math.max(1, 1.3 / aspect);
+  const halfWidth = ((n - 1) * 1.6) / 2 + 0.9;
+  const hFov = 2 * Math.atan(Math.tan((camera.fov * D2R) / 2) * (camera.aspect || 1.5));
+  return Math.max(4.8, (halfWidth / Math.tan(hFov / 2)) * 1.1 + 1);
 }
 function setView(v, instant = false) {
   view = v;
@@ -284,14 +302,14 @@ $('#btnMirror').addEventListener('click', (e) => {
 let rigs = [];
 function syncRigs() {
   project.dancers.forEach((d, i) => {
-    const k = [d.color, d.outfit, d.skin].join('|');
+    const k = [d.color, d.outfit, d.skin, d.hair].join('|');
     let r = rigs[i];
     if (!r || r.key !== k) {
       if (r) {
         stageGroup.remove(r.dancer.root);
         r.dancer.dispose();
       }
-      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin] }) };
+      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, hair: d.hair, skin: SKIN_TONES[d.skin] }) };
       stageGroup.add(r.dancer.root);
     } else if (r.name !== d.name) {
       r.dancer.setLabel(d.name, d.color);
@@ -722,6 +740,7 @@ function renderDancers() {
       <div class="d-opts">
         <select data-k="role" title="Partner role" ${partner ? '' : 'disabled'}><option value="lead" ${d.role === 'lead' ? 'selected' : ''}>Lead</option><option value="follow" ${d.role === 'follow' ? 'selected' : ''}>Follow</option></select>
         <select data-k="outfit" title="Outfit"><option value="pants" ${d.outfit === 'pants' ? 'selected' : ''}>Casual</option><option value="suit" ${d.outfit === 'suit' ? 'selected' : ''}>Suit</option><option value="dress" ${d.outfit === 'dress' ? 'selected' : ''}>Dress</option></select>
+        <select data-k="hair" title="Hair">${Object.entries(HAIR_STYLES).map(([v, l]) => `<option value="${v}" ${d.hair === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
         <select data-k="skin" title="Skin tone">${SKIN_TONES.map((_, s) => `<option value="${s}" ${d.skin === s ? 'selected' : ''}>Tone ${s + 1}</option>`).join('')}</select>
       </div></li>`
     )
@@ -734,6 +753,10 @@ $('#dancerList').addEventListener('input', (e) => {
   if (!li || !k) return;
   const d = project.dancers[+li.dataset.i];
   d[k] = k === 'skin' ? +e.target.value : e.target.value;
+  if (k === 'outfit') {
+    d.hair = defaultHair(d.outfit);
+    renderDancers();
+  }
   if (k === 'name') syncCoupleNames();
   syncRigs();
   save();
@@ -753,9 +776,10 @@ $('#btnAddDancer').addEventListener('click', () => {
   project.dancers.push({
     id: uid(),
     name: `Dancer ${n + 1}`,
-    color: wed ? (role === 'lead' ? WEDDING_COLORS.lead : PALETTE[(n * 3) % PALETTE.length]) : PALETTE[n % PALETTE.length],
+    color: wed ? WEDDING_COLORS[role] : PALETTE[n % PALETTE.length],
     role,
     outfit: wed ? (role === 'lead' ? 'suit' : 'dress') : 'pants',
+    hair: wed && role === 'follow' ? 'long' : n % 3 === 1 ? 'long' : n % 3 === 2 ? 'bun' : 'short',
     skin: (n * 2) % SKIN_TONES.length
   });
   afterDancerChange();

@@ -140,16 +140,23 @@ function labelSprite(text, color) {
   return s;
 }
 
+export const HAIR_STYLES = { short: 'Short hair', long: 'Long hair', bun: 'Bun' };
+export const defaultHair = (outfit) => (outfit === 'dress' ? 'long' : 'short');
+
+const lathe = (pts, seg = 22) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+const taper = (r1, r2, len) => new THREE.CylinderGeometry(r1, r2, len, 16);
+const ball = (r, w = 16, h = 12) => new THREE.SphereGeometry(r, w, h);
+
 export class Dancer {
-  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1] } = {}) {
+  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1], hair } = {}) {
     this.root = new THREE.Group();
-    this._build(color, outfit, skin);
+    this._build(color, outfit, skin, hair || defaultHair(outfit));
     this.setLabel(name, color);
     this.setPose(P());
   }
 
-  _mat(color, rough = 0.65) {
-    return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.05 });
+  _mat(color, rough = 0.65, extra = {}) {
+    return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: 0.02, ...extra });
   }
 
   _mesh(geo, mat, parent, pos = [0, 0, 0], scale) {
@@ -162,79 +169,143 @@ export class Dancer {
     return m;
   }
 
-  _build(color, outfit, skinColor) {
-    const top = this._mat(color);
-    const bottomColor = new THREE.Color(color).multiplyScalar(outfit === 'suit' ? 1 : 0.45);
-    const bottom = this._mat(bottomColor);
-    const skin = this._mat(skinColor, 0.8);
-    const shoe = this._mat('#1d1a24', 0.4);
-    const hair = this._mat('#2b1d14', 0.9);
-    this.materials = { top, bottom, skin, shoe, hair };
+  _build(color, outfit, skinColor, hairStyle) {
+    const suit = outfit === 'suit';
+    const dress = outfit === 'dress';
+    const casual = !suit && !dress;
+    const cloth = this._mat(color, suit ? 0.5 : 0.8);
+    const lapelMat = this._mat(new THREE.Color(color).multiplyScalar(0.75), 0.45);
+    const trousers = suit ? cloth : this._mat(new THREE.Color(color).multiplyScalar(0.35).lerp(new THREE.Color('#2f3b55'), 0.55), 0.85);
+    const skin = this._mat(skinColor, 0.62);
+    const shirt = this._mat('#f3f1ec', 0.6);
+    const hair = this._mat('#2a1a12', 0.75);
+    const dark = this._mat('#17141a', 0.5);
+    const shoe = suit ? this._mat('#111013', 0.28) : dress ? this._mat('#c49a6c', 0.6) : this._mat('#ecebe7', 0.7);
+    const twoSided = (m) => Object.assign(m.clone(), { side: THREE.DoubleSide });
+    this.materials = { top: cloth, skin, hair };
 
     const G = () => new THREE.Group();
-    const cap = (r, l) => new THREE.CapsuleGeometry(r, l, 4, 12);
+    const legMat = dress ? skin : trousers;
+    const hipMat = dress ? cloth : trousers;
 
+    // ---- pelvis / torso ----
     const pelvis = (this.pelvis = G());
     this.root.add(pelvis);
-    this._mesh(new THREE.SphereGeometry(1, 16, 12), bottom, pelvis, [0, 0, 0], [0.16, 0.11, 0.11]);
+    this._mesh(lathe([[0, -0.1], [0.1, -0.1], [0.145, -0.04], [0.14, 0.02], [0.128, 0.08], [0, 0.08]]), hipMat, pelvis, [0, 0, 0], [1.05, 1, 0.72]);
 
     const spine = (this.spine = G());
     spine.position.y = 0.06;
     pelvis.add(spine);
-    this._mesh(cap(0.115, 0.12), top, spine, [0, 0.09, 0], [1.05, 1, 0.82]);
+    this._mesh(lathe([[0, -0.02], [0.13, -0.02], [0.117, 0.08], [0.12, 0.16], [0.128, 0.23], [0, 0.23]]), cloth, spine, [0, 0, 0], [1.05, 1, 0.7]);
 
     const chest = (this.chest = G());
     chest.position.y = 0.2;
     spine.add(chest);
-    this._mesh(cap(0.14, 0.13), top, chest, [0, 0.13, 0], [1.18, 1, 0.8]);
+    const shoulderW = dress ? 0.97 : 1.08;
+    this._mesh(
+      lathe([[0, 0], [0.126, 0], [0.142, 0.1], [0.158, 0.18], [0.165, 0.24], [0.15, 0.29], [0.11, 0.32], [0.05, 0.335], [0, 0.335]]),
+      cloth,
+      chest,
+      [0, 0, 0],
+      [shoulderW, 1, 0.68]
+    );
+    if (dress) {
+      // bare shoulders/neckline above a sleeveless bodice
+      this._mesh(lathe([[0, 0.27], [0.15, 0.27], [0.11, 0.32], [0.05, 0.338], [0, 0.338]]), skin, chest, [0, 0.004, 0], [shoulderW * 1.01, 1, 0.7]);
+    }
 
+    // ---- neck & head ----
     const neck = (this.neck = G());
     neck.position.y = 0.33;
     chest.add(neck);
-    this._mesh(new THREE.CylinderGeometry(0.045, 0.05, 0.09, 10), skin, neck, [0, 0.03, 0]);
+    this._mesh(taper(0.043, 0.05, 0.1), skin, neck, [0, 0.03, 0]);
     const head = (this.head = G());
     head.position.y = 0.07;
     neck.add(head);
-    this._mesh(new THREE.SphereGeometry(0.105, 20, 16), skin, head, [0, 0.1, 0.005], [0.92, 1.05, 1]);
-    // hair cap + nose so facing direction is readable
-    this._mesh(
-      new THREE.SphereGeometry(0.11, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.55),
-      hair,
-      head,
-      [0, 0.115, -0.012],
-      [0.95, 1.02, 1.02]
-    );
-    this._mesh(new THREE.ConeGeometry(0.016, 0.035, 8), skin, head, [0, 0.09, 0.105]).rotation.x = Math.PI / 2;
+    this._mesh(ball(0.1, 24, 18), skin, head, [0, 0.105, 0], [0.86, 1.08, 0.96]);
+    this._mesh(ball(0.07, 18, 12), skin, head, [0, 0.055, 0.025], [1, 0.95, 1]); // jaw
+    for (const s of [1, -1]) {
+      this._mesh(ball(0.022, 10, 8), skin, head, [0.087 * s, 0.1, -0.005], [0.45, 1, 0.75]); // ears
+      this._mesh(ball(0.011, 8, 6), dark, head, [0.032 * s, 0.118, 0.084]); // eyes
+      this._mesh(new THREE.BoxGeometry(0.03, 0.006, 0.01), hair, head, [0.032 * s, 0.137, 0.086]).rotation.z = -0.12 * s; // brows
+    }
+    const nose = this._mesh(new THREE.ConeGeometry(0.014, 0.04, 8), skin, head, [0, 0.093, 0.1]);
+    nose.rotation.x = Math.PI / 2.4;
 
+    // hair
+    this._mesh(new THREE.SphereGeometry(0.108, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.5), hair, head, [0, 0.122, -0.008], [0.9, 0.95, 1.02]);
+    this._mesh(ball(0.103, 20, 14), hair, head, [0, 0.105, -0.028], [0.9, 0.98, 0.9]);
+    if (hairStyle === 'long') {
+      const fall = new THREE.CylinderGeometry(0.098, 0.13, 0.46, 20, 1, true, Math.PI * 0.5, Math.PI);
+      this._mesh(fall, twoSided(hair), head, [0, -0.115, -0.018], [1, 1, 0.75]);
+      for (const s of [1, -1]) this._mesh(new THREE.BoxGeometry(0.025, 0.3, 0.07), hair, head, [0.083 * s, -0.04, 0.005]).rotation.z = 0.08 * s;
+    } else if (hairStyle === 'bun') {
+      this._mesh(ball(0.052, 14, 10), hair, head, [0, 0.175, -0.085]);
+    }
+
+    // ---- suit / casual details ----
+    if (suit) {
+      const v = new THREE.Shape();
+      v.moveTo(-0.045, 0);
+      v.lineTo(0.045, 0);
+      v.lineTo(0, -0.15);
+      v.closePath();
+      const shirtV = this._mesh(new THREE.ShapeGeometry(v), shirt, chest, [0, 0.318, 0.104]);
+      shirtV.rotation.x = -0.3;
+      this._mesh(new THREE.BoxGeometry(0.022, 0.15, 0.008), this._mat('#5f6672', 0.5), chest, [0, 0.235, 0.118]).rotation.x = -0.18; // tie
+      for (const s of [1, -1]) this._mesh(new THREE.BoxGeometry(0.03, 0.17, 0.012), lapelMat, chest, [0.04 * s, 0.24, 0.112], undefined).rotation.set(-0.2, 0, 0.32 * s); // lapels
+      this._mesh(new THREE.CylinderGeometry(0.133, 0.155, 0.2, 24, 1, true), twoSided(cloth), pelvis, [0, -0.045, 0], [1.05, 1, 0.74]); // jacket hem
+      this._mesh(ball(0.008, 8, 6), dark, spine, [0, 0.07, 0.093]); // button
+    }
+
+    // ---- arms ----
     this.arms = {};
+    const upperMat = dress ? skin : cloth;
+    const foreMat = suit ? cloth : skin;
     for (const side of [1, -1]) {
       const sh = G();
-      sh.position.set(0.19 * side, 0.25, 0);
+      sh.position.set(0.18 * side * shoulderW, 0.255, 0);
       chest.add(sh);
-      this._mesh(new THREE.SphereGeometry(0.06, 12, 10), top, sh);
-      this._mesh(cap(0.047, UPPER_ARM - 0.06), top, sh, [0, -UPPER_ARM / 2, 0]);
+      this._mesh(ball(0.057), upperMat, sh);
+      if (casual) {
+        this._mesh(taper(0.046, 0.039, UPPER_ARM), skin, sh, [0, -UPPER_ARM / 2, 0]);
+        this._mesh(taper(0.06, 0.054, 0.13), cloth, sh, [0, -0.06, 0]); // tee sleeve
+      } else this._mesh(taper(dress ? 0.042 : 0.052, dress ? 0.035 : 0.044, UPPER_ARM), upperMat, sh, [0, -UPPER_ARM / 2, 0]);
       const el = G();
       el.position.y = -UPPER_ARM;
       sh.add(el);
-      this._mesh(cap(0.04, FOREARM - 0.06), skin, el, [0, -FOREARM / 2, 0]);
-      this._mesh(new THREE.SphereGeometry(0.045, 12, 10), skin, el, [0, -FOREARM - 0.035, 0], [0.8, 1.15, 0.6]);
+      this._mesh(ball(suit ? 0.044 : 0.038), foreMat, el);
+      this._mesh(taper(suit ? 0.044 : 0.037, suit ? 0.038 : 0.028, FOREARM), foreMat, el, [0, -FOREARM / 2, 0]);
+      if (suit) this._mesh(taper(0.031, 0.031, 0.02), shirt, el, [0, -FOREARM + 0.005, 0]); // cuff
+      // hand: palm faces the body when hanging, thumb to the front
+      this._mesh(new THREE.BoxGeometry(0.026, 0.085, 0.07), skin, el, [0, -FOREARM - 0.045, 0.004]);
+      this._mesh(new THREE.CapsuleGeometry(0.011, 0.035, 3, 8), skin, el, [-0.008 * side, -FOREARM - 0.03, 0.042]).rotation.x = 0.5;
       this.arms[side] = { sh, el };
     }
 
+    // ---- legs ----
     this.legs = {};
     for (const side of [1, -1]) {
       const hip = G();
-      hip.position.set(0.09 * side, -0.04, 0);
+      hip.position.set(0.088 * side, -0.04, 0);
       pelvis.add(hip);
-      this._mesh(cap(0.07, THIGH - 0.1), bottom, hip, [0, -THIGH / 2, 0]);
+      this._mesh(taper(dress ? 0.07 : 0.078, dress ? 0.05 : 0.058, THIGH), legMat, hip, [0, -THIGH / 2, 0]);
       const knee = G();
       knee.position.y = -THIGH;
       hip.add(knee);
-      this._mesh(cap(0.055, SHIN - 0.08), bottom, knee, [0, -SHIN / 2, 0]);
+      this._mesh(ball(dress ? 0.05 : 0.057), legMat, knee);
+      this._mesh(taper(dress ? 0.05 : 0.056, dress ? 0.033 : 0.045, SHIN), legMat, knee, [0, -SHIN / 2, 0]);
       const ankle = G();
       ankle.position.y = -SHIN;
       knee.add(ankle);
-      this._mesh(new THREE.BoxGeometry(0.085, 0.06, 0.23), shoe, ankle, [0, -0.045, 0.045]);
+      const footGeo = new THREE.CapsuleGeometry(dress ? 0.034 : 0.043, dress ? 0.15 : 0.16, 4, 12).rotateX(Math.PI / 2);
+      if (dress) {
+        this._mesh(footGeo, skin, ankle, [0, -0.05, 0.045], [0.95, 0.7, 1]);
+        this._mesh(new THREE.BoxGeometry(0.075, 0.012, 0.24), shoe, ankle, [0, -0.07, 0.045]); // sandal sole
+        this._mesh(new THREE.BoxGeometry(0.078, 0.012, 0.02), shoe, ankle, [0, -0.047, 0.09]); // strap
+      } else {
+        this._mesh(footGeo, shoe, ankle, [0, -0.048, 0.045], [1, 0.72, 1]);
+      }
       const heel = new THREE.Object3D();
       heel.position.set(0, -ANKLE_TO_SOLE, -0.06);
       const toe = new THREE.Object3D();
@@ -243,20 +314,9 @@ export class Dancer {
       this.legs[side] = { hip, knee, ankle, heel, toe };
     }
 
-    if (outfit === 'dress') {
-      const dressMat = top.clone();
-      dressMat.side = THREE.DoubleSide;
-      const skirt = this._mesh(new THREE.CylinderGeometry(0.15, 0.46, 0.72, 28, 1, true), dressMat, pelvis, [0, -0.33, 0]);
-      skirt.castShadow = true;
-      this.skirt = skirt;
-      // bodice in same colour; hide legs a little by making trousers skin-toned below the skirt
-      for (const side of [1, -1]) this.legs[side].knee.children[0].material = skin;
-    }
-    if (outfit === 'suit') {
-      // white shirt + tie hint on the chest
-      const shirt = this._mat('#f4f1ea', 0.6);
-      this._mesh(new THREE.BoxGeometry(0.08, 0.2, 0.02), shirt, chest, [0, 0.15, 0.112]);
-      this._mesh(new THREE.BoxGeometry(0.025, 0.16, 0.012), this._mat('#1a1a1a'), chest, [0, 0.14, 0.125]);
+    if (dress) {
+      // knee-length shift skirt
+      this.skirt = this._mesh(new THREE.CylinderGeometry(0.148, 0.235, 0.5, 30, 3, true), twoSided(cloth), pelvis, [0, -0.23, 0], [1.04, 1, 0.82]);
     }
   }
 

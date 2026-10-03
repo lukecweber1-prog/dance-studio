@@ -13,9 +13,9 @@ A browser app that choreographs a dance to your song and teaches it with animate
 - **5 styles, 35 moves**: Jazz, Lyrical, Hip-Hop, Swing (solo and partner) and the featured **Wedding First Dance**.
 - **3D teaching stage**: front, follow-along (behind), side and top cameras, plus a mirror toggle, practice speeds of 0.5× and 0.75×, and looping of any 8-count.
 - **Live cues**: a big count display, the current count's instruction, the full 8-count breakdown and what's next.
-- **Groups**: up to 8 dancers, each with their own name, colour, outfit, skin tone and lead/follow role. Choose a formation (line, V, staggered, circle, diagonal), add a canon/ripple, or mirror every other dancer. In partner styles, leads and follows pair up into couples automatically.
+- **Groups**: up to 8 dancers, each with their own name, colour, outfit (casual, suit with tie, or sleeveless dress with sandals), hair (short, long or bun), skin tone and lead/follow role. Choose a formation (line, V, staggered, circle, diagonal), add a canon/ripple, or mirror every other dancer. In partner styles, leads and follows pair up into couples automatically.
 - **Timeline editor**: the routine follows the song's structure (intro, verse, chorus, bridge, finale). Swap any 8-count for a different move (even from another style). Moves you pick by hand are pinned 📌 and kept when you **Remix**.
-- **Wedding mode** 💍: a couple in a suit and a dress, a beginner-friendly first-dance structure (sway, box step, underarm spin, open-out reveal, cuddle wrap, promenade), a choice of finale (dramatic dip or twirl and kiss), trimming the routine to 1:30–3:00, editable couple names, a rehearsal checklist and safety tips.
+- **Wedding mode** 💍: a couple in a charcoal suit and a knee-length dress dancing in a bright, warm studio, a beginner-friendly first-dance structure (sway, box step, underarm spin, open-out reveal, cuddle wrap, promenade), a choice of finale (dramatic dip or twirl and kiss), trimming the routine to 1:30–3:00, editable couple names, a rehearsal checklist and safety tips.
 - **Save and share**: your work autosaves in the browser. You can also export or import a project as JSON and print a cue sheet.
 
 ## Running it
