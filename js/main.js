@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { Dancer, SKIN_TONES } from './rig.js';
+import { Dancer, SKIN_TONES, HAIR_STYLES, defaultHair } from './rig.js';
 import { STYLES, STYLE_ORDER, MOVES, LEVELS, generateChoreo, defaultFinale } from './moves.js';
 import { evaluate } from './engine.js';
 import { parseMusicLink, audioContext, FileSource, BufferSource, YouTubeSource, SoundCloudSource, ClockSource, Recorder, analyzeTempo } from './audio.js';
@@ -35,7 +35,7 @@ const WEDDING_CHECKLIST = [
 function weddingDancers(names = ['Partner A', 'Partner B']) {
   return [
     { id: uid(), name: names[0], color: WEDDING_COLORS.lead, role: 'lead', outfit: 'suit', hair: 'short', skin: 1 },
-    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', hair: 'long', skin: 0 }
+    { id: uid(), name: names[1], color: WEDDING_COLORS.follow, role: 'follow', outfit: 'dress', hair: 'updo', skin: 0 }
   ];
 }
 
@@ -80,6 +80,7 @@ function sanitize(p) {
       color: /^#[0-9a-f]{6}$/i.test(x.color) ? x.color : d.dancers[i].color,
       role,
       outfit: ['pants', 'suit', 'dress'].includes(x.outfit) ? x.outfit : d.dancers[i].outfit,
+      hair: HAIR_STYLES[x.hair] ? x.hair : x.hair === 'long' || x.hair === 'bun' ? 'updo' : null,
       skin: Math.max(0, Math.min(SKIN_TONES.length - 1, x.skin | 0))
     };
   });
@@ -326,14 +327,14 @@ $('#btnMirror').addEventListener('click', (e) => {
 let rigs = [];
 function syncRigs() {
   project.dancers.forEach((d, i) => {
-    const k = [d.color, d.outfit, d.skin, i, project.look].join('|');
+    const k = [d.color, d.outfit, d.skin, d.hair, i, project.look].join('|');
     let r = rigs[i];
     if (!r || r.key !== k) {
       if (r) {
         stageGroup.remove(r.dancer.root);
         r.dancer.dispose();
       }
-      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i, look: project.look }) };
+      r = rigs[i] = { key: k, name: d.name, dancer: new Dancer({ name: d.name, color: d.color, outfit: d.outfit, skin: SKIN_TONES[d.skin], variant: i, look: project.look, hair: d.hair }) };
       stageGroup.add(r.dancer.root);
     } else if (r.name !== d.name) {
       r.dancer.setLabel(d.name, d.color);
@@ -801,6 +802,7 @@ function renderDancers() {
       <span class="role-tag ${d.role}">${d.role === 'lead' ? 'Lead' : 'Follow'}</span>
       <div class="d-opts">
         <select data-k="outfit" title="Outfit"><option value="suit" ${d.outfit === 'suit' ? 'selected' : ''}>Suit</option><option value="dress" ${d.outfit === 'dress' ? 'selected' : ''}>Gown</option><option value="pants" ${d.outfit === 'pants' ? 'selected' : ''}>Casual</option></select>
+        <select data-k="hair" title="Hair">${Object.entries(HAIR_STYLES).map(([v, n]) => `<option value="${v}" ${(d.hair || defaultHair(d.outfit)) === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
         <select data-k="skin" title="Skin tone">${SKIN_TONES.map((_, s) => `<option value="${s}" ${d.skin === s ? 'selected' : ''}>Skin tone ${s + 1}</option>`).join('')}</select>
       </div></li>`
     )

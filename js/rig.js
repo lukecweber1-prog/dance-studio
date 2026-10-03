@@ -146,6 +146,9 @@ function labelSprite(text, color) {
 // pose (limbs hanging straight down), so joints bend like skin instead of
 // showing as separate balls and capsules.
 // ---------------------------------------------------------------------------
+export const HAIR_STYLES = { short: 'Short hair', updo: 'Updo', ponytail: 'Ponytail' };
+export const defaultHair = (outfit) => (outfit === 'dress' ? 'updo' : 'short');
+
 const HAIR_COLORS = ['#2b1d14', '#5a3a22', '#141010', '#8a5a32', '#3b2618', '#b48a5a'];
 
 const smoothstep = (a, b, x) => {
@@ -498,12 +501,12 @@ export class Dancer {
   /**
    * outfit: 'pants' | 'suit' | 'dress'. variant picks hair & build for casual dancers.
    */
-  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1], variant = 0, look = 'outfit' } = {}) {
+  constructor({ name = 'Dancer', color = '#e85d75', outfit = 'pants', skin = SKIN_TONES[1], variant = 0, look = 'outfit', hair } = {}) {
     this.root = new THREE.Group();
     this.outfit = outfit;
     this.mannequin = look === 'mannequin';
     this.fem = outfit === 'dress' || (outfit === 'pants' && variant % 2 === 1);
-    this.hairStyle = outfit === 'dress' ? 'updo' : outfit === 'suit' ? 'short' : this.fem ? 'ponytail' : 'short';
+    this.hairStyle = HAIR_STYLES[hair] ? hair : outfit === 'pants' && this.fem ? 'ponytail' : defaultHair(outfit);
     this.hairColor = outfit === 'suit' ? '#5a3a22' : outfit === 'dress' ? '#2a1a12' : HAIR_COLORS[(variant * 3 + 1) % HAIR_COLORS.length];
     this._build(color, this.mannequin ? 'none' : outfit, skin);
     this.root.scale.setScalar(this.fem ? 0.94 : 0.98);
