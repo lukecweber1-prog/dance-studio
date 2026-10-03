@@ -1061,6 +1061,67 @@ const country = [
       k(8, { rArm: A.oneHandF, lArm: A.lowV, squat: 8, root: { x: 0.3, rot: 720 } })
     ]
   },
+  // ----- two-hand-hold turns (from a second country swing tutorial) -----
+  {
+    id: 'cs-windmill',
+    name: 'Windmill',
+    level: 2,
+    partner: true,
+    desc: 'Keeping both hands, the follow turns under the raised arms, then the lead turns under — the arms circle like a windmill.',
+    cues: ['Two hands — rock back', 'Replace', 'Lift the hands — follow turns', '…and around', 'Face each other', 'Lead turns under', '…and around', 'Two hands, face to face'],
+    lead: [
+      k(0, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1 } }),
+      k(1, { lArm: A.twoHand, rArm: A.twoHand, lLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: -0.16 } }),
+      k(2, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1 } }),
+      k(3, { lArm: A.turnHand, rArm: [70, 80, 0, 40], squat: 8, root: { x: -0.06 } }),
+      k(4, { lArm: [120, 50, 0, 40], rArm: [120, 60, 0, 40], squat: 8, root: { x: -0.06 } }),
+      k(5, { lArm: A.twoHand, rArm: A.twoHand, squat: 10, root: { x: -0.1 } }),
+      k(6, { lArm: A.turnHand, rArm: A.turnHand, lFoot: 20, rFoot: 20, root: { x: -0.06, rot: -170, lift: 0.02 } }),
+      k(7, { lArm: [120, 50, 0, 40], rArm: [120, 50, 0, 40], squat: 6, root: { x: -0.06, rot: -360 } }),
+      k(8, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1, rot: -360 } })
+    ],
+    follow: [
+      k(0, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1 } }),
+      k(1, { lArm: A.twoHandF, rArm: A.twoHandF, rLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: 0.16 } }),
+      k(2, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1 } }),
+      k(3, { lArm: [120, 40, 0, 40], rArm: A.turnHand, lFoot: 25, rFoot: 25, root: { x: 0.06, rot: -170, lift: 0.02 } }),
+      k(4, { lArm: [120, 50, 0, 40], rArm: [120, 50, 0, 40], squat: 6, root: { x: 0.06, rot: -360 } }),
+      k(5, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 10, root: { x: 0.1, rot: -360 } }),
+      k(6, { lArm: A.turnHand, rArm: A.turnHand, squat: 8, root: { x: 0.06, rot: -360 } }),
+      k(7, { lArm: [110, 50, 0, 40], rArm: [110, 50, 0, 40], squat: 8, root: { x: 0.06, rot: -360 } }),
+      k(8, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1, rot: -360 } })
+    ]
+  },
+  {
+    id: 'cs-dishrag',
+    name: 'Dishrag',
+    level: 3,
+    partner: true,
+    desc: 'Both partners turn at the same time under their raised, joined hands — back to back with the arms crossed overhead — and come out face to face without letting go.',
+    cues: ['Two hands — rock back', 'Replace', 'Lift both hands…', 'Both turn — back to back!', '…keep turning', '…face to face', 'Hands down — step', 'Step'],
+    lead: [
+      k(0, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1 } }),
+      k(1, { lArm: A.twoHand, rArm: A.twoHand, lLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: -0.16 } }),
+      k(2, { lArm: [80, 70, 0, 30], rArm: [80, 70, 0, 30], squat: 8, root: { x: -0.1 } }),
+      k(3, { lArm: A.turnHand, rArm: A.turnHand, lFoot: 15, rFoot: 15, root: { x: -0.05, rot: -70, lift: 0.01 } }),
+      k(4, { lArm: [160, 30, 0, 30], rArm: [160, 30, 0, 30], lFoot: 15, rFoot: 15, root: { x: -0.05, rot: -180, lift: 0.01 } }),
+      k(5, { lArm: A.turnHand, rArm: A.turnHand, root: { x: -0.05, rot: -290 } }),
+      k(6, { lArm: [80, 70, 0, 30], rArm: [80, 70, 0, 30], squat: 8, root: { x: -0.1, rot: -360 } }),
+      k(7, { lArm: A.twoHand, rArm: A.twoHand, lLeg: L.side, squat: 12, root: { x: -0.1, rot: -360 } }),
+      k(8, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1, rot: -360 } })
+    ],
+    follow: [
+      k(0, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1 } }),
+      k(1, { lArm: A.twoHandF, rArm: A.twoHandF, rLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: 0.16 } }),
+      k(2, { lArm: [80, 70, 0, 30], rArm: [80, 70, 0, 30], squat: 8, root: { x: 0.1 } }),
+      k(3, { lArm: A.turnHand, rArm: A.turnHand, lFoot: 20, rFoot: 20, root: { x: 0.05, rot: 70, lift: 0.02 } }),
+      k(4, { lArm: [160, 30, 0, 30], rArm: [160, 30, 0, 30], lFoot: 20, rFoot: 20, root: { x: 0.05, rot: 180, lift: 0.02 } }),
+      k(5, { lArm: A.turnHand, rArm: A.turnHand, root: { x: 0.05, rot: 290 } }),
+      k(6, { lArm: [80, 70, 0, 30], rArm: [80, 70, 0, 30], squat: 8, root: { x: 0.1, rot: 360 } }),
+      k(7, { lArm: A.twoHandF, rArm: A.twoHandF, rLeg: L.side, squat: 12, root: { x: 0.1, rot: 360 } }),
+      k(8, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1, rot: 360 } })
+    ]
+  },
   waistLift('cs-cradle', 'Cradle Carry Spin', 4, 'Lead scoops the follow up into his arms — the bridal carry — and spins. Swing her legs out wide for the guests.', {
     air: 1,
     pelvis: [-80, 90, 0],
