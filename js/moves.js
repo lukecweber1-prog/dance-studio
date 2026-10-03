@@ -1122,6 +1122,69 @@ const country = [
       k(8, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1, rot: 360 } })
     ]
   },
+  // ----- from the sweetheart and change-places clips -----
+  // Sweetheart: the follow ends on the lead's right (−x when both face the audience), arms crossed in front of her.
+  {
+    id: 'cs-sweetheart',
+    name: 'Sweetheart Wrap & Roll-Out',
+    level: 2,
+    partner: true,
+    desc: 'From two hands the lead turns the follow in to his right side — both facing the guests, her arms crossed in his — sways, then rolls her back out to face him.',
+    cues: ['Two hands — rock back', 'Replace', 'Lead lifts his left — follow turns in', 'Sweetheart! Side by side', 'Sway together', 'Sway', 'Roll her out…', 'Two hands, face to face'],
+    lead: [
+      k(0, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1 } }),
+      k(1, { lArm: A.twoHand, rArm: A.twoHand, lLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: -0.16 } }),
+      k(2, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1 } }),
+      k(3, { lArm: A.turnHand, rArm: [40, 60, 0, 30], squat: 6, root: { x: 0.08, z: -0.04, rot: -45 } }),
+      k(4, { lArm: [48, 135, 0, 35], rArm: [55, -15, 0, 55], squat: 8, head: [0, 15, 0], root: { x: 0.3, z: -0.02, rot: -90 } }),
+      k(5, { lArm: [48, 135, 0, 35], rArm: [55, -15, 0, 55], rLeg: L.side, spine: [0, 0, 6], head: [0, 20, 0], squat: 10, root: { x: 0.26, z: -0.02, rot: -90 } }),
+      k(6, { lArm: [48, 135, 0, 35], rArm: [55, -15, 0, 55], lLeg: L.side, spine: [0, 0, -6], head: [0, 20, 0], squat: 10, root: { x: 0.34, z: -0.02, rot: -90 } }),
+      k(7, { lArm: A.turnHand, rArm: A.down, squat: 6, root: { x: 0.14, rot: -45 } }),
+      k(8, { lArm: A.twoHand, rArm: A.twoHand, squat: 8, root: { x: -0.1, rot: 0 } })
+    ],
+    follow: [
+      k(0, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1 } }),
+      k(1, { lArm: A.twoHandF, rArm: A.twoHandF, rLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: 0.16 } }),
+      k(2, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1 } }),
+      k(3, { rArm: A.turnHand, lArm: [40, 120, 0, 30], lFoot: 25, rFoot: 25, root: { x: -0.12, z: 0.16, rot: -150, lift: 0.02 } }),
+      k(4, { lArm: [42, 145, -60, 70], rArm: [38, 145, -60, 75], squat: 8, head: [0, -15, 0], root: { x: -0.4, z: 0.02, rot: -270 } }),
+      k(5, { lArm: [42, 145, -60, 70], rArm: [38, 145, -60, 75], rLeg: L.side, spine: [0, 0, 6], head: [0, -20, 0], squat: 10, root: { x: -0.44, z: 0.02, rot: -270 } }),
+      k(6, { lArm: [42, 145, -60, 70], rArm: [38, 145, -60, 75], lLeg: L.side, spine: [0, 0, -6], head: [0, -20, 0], squat: 10, root: { x: -0.36, z: 0.02, rot: -270 } }),
+      k(7, { rArm: A.turnHand, lArm: A.side, lFoot: 25, rFoot: 25, root: { x: -0.06, z: 0.12, rot: -520, lift: 0.02 } }),
+      k(8, { lArm: A.twoHandF, rArm: A.twoHandF, squat: 8, root: { x: 0.1, rot: -720 } })
+    ]
+  },
+  // Change places: they swap sides under the joined hands (follow's turn), then swap back with the lead's turn.
+  {
+    id: 'cs-change-places',
+    name: 'Change Places & Lead’s Turn',
+    level: 2,
+    partner: true,
+    desc: 'In a one-hand hold the couple trades places under the arch — the follow turns under on the way over, then the lead turns under his own arm on the way back.',
+    cues: ['One hand — rock back', 'Replace', 'Arch up — trade places', 'Follow turns under', 'Face each other', 'Lead’s turn — under the arch', '…trade back', 'One hand, face to face'],
+    lead: [
+      k(0, { lArm: A.oneHand, rArm: A.down, squat: 8, root: { x: -0.1 } }),
+      k(1, { lArm: A.oneHand, rArm: A.down, lLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: -0.16 } }),
+      k(2, { lArm: A.oneHand, rArm: A.down, squat: 8, root: { x: -0.1 } }),
+      k(3, { lArm: A.turnHand, rArm: A.lowV, lLeg: L.fwd, squat: 6, root: { x: 0.12, z: -0.24, rot: -80 } }),
+      k(4, { lArm: [100, 60, 0, 30], rArm: A.lowV, squat: 8, root: { x: 0.4, z: -0.04, rot: -180 } }),
+      k(5, { lArm: A.oneHand, rArm: A.down, squat: 10, root: { x: 0.44, rot: -180 } }),
+      k(6, { lArm: A.turnHand, rArm: A.lowV, lFoot: 15, rFoot: 15, root: { x: 0.2, z: 0.24, rot: -290, lift: 0.01 } }),
+      k(7, { lArm: [100, 60, 0, 30], rArm: A.lowV, squat: 8, root: { x: -0.06, z: 0.04, rot: -360 } }),
+      k(8, { lArm: A.oneHand, rArm: A.down, squat: 8, root: { x: -0.1, rot: -360 } })
+    ],
+    follow: [
+      k(0, { rArm: A.oneHandF, lArm: A.lowV, squat: 8, root: { x: 0.1 } }),
+      k(1, { rArm: A.oneHandF, lArm: A.lowV, rLeg: L.back, squat: 12, spine: [-6, 0, 0], root: { x: 0.16 } }),
+      k(2, { rArm: A.oneHandF, lArm: A.lowV, squat: 8, root: { x: 0.1 } }),
+      k(3, { rArm: A.turnHand, lArm: A.side, lFoot: 25, rFoot: 25, root: { x: -0.12, z: 0.24, rot: 110, lift: 0.02 } }),
+      k(4, { rArm: [100, 60, 0, 30], lArm: A.lowV, squat: 8, root: { x: -0.4, z: 0.04, rot: 180 } }),
+      k(5, { rArm: A.oneHandF, lArm: A.lowV, squat: 10, root: { x: -0.44, rot: 180 } }),
+      k(6, { rArm: [140, 50, 0, 25], lArm: A.lowV, rLeg: L.fwd, squat: 6, root: { x: -0.2, z: -0.24, rot: 260 } }),
+      k(7, { rArm: [90, 70, 0, 30], lArm: A.lowV, squat: 8, root: { x: 0.06, z: -0.04, rot: 360 } }),
+      k(8, { rArm: A.oneHandF, lArm: A.lowV, squat: 8, root: { x: 0.1, rot: 360 } })
+    ]
+  },
   waistLift('cs-cradle', 'Cradle Carry Spin', 4, 'Lead scoops the follow up into his arms — the bridal carry — and spins. Swing her legs out wide for the guests.', {
     air: 1,
     pelvis: [-80, 90, 0],
