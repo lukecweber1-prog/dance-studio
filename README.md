@@ -70,7 +70,7 @@ Every move provides `lead` and `follow` tracks plus a `level` (1–5). Solo mate
 The **Real** look uses two rigged models from `models/` (the Stylized and Mannequin looks are built in code):
 
 - **Groom**: “Man dressed in suit”, made with [MakeHuman](https://www.makehumancommunity.org/) (CC0). Converted from Collada to glTF.
-- **Bride**: “[Casual Woman in Brown Dress Rigged Idle](https://sketchfab.com/3d-models/casual-woman-in-brown-dress-rigged-idle-b38456c89bf94323aa3c079f27e435ce)” by [florah](https://sketchfab.com/florah), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Optimised for the web (simplified mesh, WebP textures, quantised).
+- **Bride**: “[Casual Woman in Brown Dress Rigged Idle](https://sketchfab.com/3d-models/casual-woman-in-brown-dress-rigged-idle-b38456c89bf94323aa3c079f27e435ce)” by [florah](https://sketchfab.com/florah), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Optimised for the web (simplified mesh, WebP textures, quantised); the brown dress is recoloured ivory in the texture and a floor-length satin skirt is added in code (`js/model.js`).
 
 Models are stored as glTF JSON (`.json`, buffers embedded) with `.webp` textures so they can be served from any static host. Any humanoid glTF with a Mixamo or MakeHuman skeleton can be swapped in: add it to `MODELS` in `js/model.js` (and its bone names to `BONES` if they differ).
 

@@ -17,6 +17,7 @@ export const MODELS = {
   bride: {
     url: 'models/bride.json',
     height: 1.68,
+    gown: { hem: 0.41 }, // her dress ends at 41% of her height; a floor-length satin skirt continues below it
     credit: 'Bride: “Casual Woman in Brown Dress Rigged Idle” by florah (sketchfab.com/florah), CC BY 4.0'
   }
 };
@@ -140,6 +141,7 @@ export class ModelDancer {
       this.links.push({ bone, drv, C, depth: depthOf(bone) });
     }
     this.links.sort((a, b) => a.depth - b.depth);
+    if (MODELS[kind].gown) this._buildGown(MODELS[kind].gown);
     this.setLabel(name, color);
     this.setPose(P());
   }
@@ -166,6 +168,107 @@ export class ModelDancer {
   }
 
   setHighlight() {}
+
+  // ----- floor-length overskirt: rings hang from just above her dress hem, pushed out by her legs -----
+  _buildGown({ hem }) {
+    const N = 22;
+    const M = 56;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * M * 3), 3));
+    const idx = [];
+    for (let i = 0; i < N - 1; i++)
+      for (let j = 0; j < M; j++) {
+        const a = i * M + j, b = i * M + ((j + 1) % M), c = (i + 1) * M + j, d = (i + 1) * M + ((j + 1) % M);
+        idx.push(a, b, c, b, d, c);
+      }
+    geo.setIndex(idx);
+    const mat = new THREE.MeshPhysicalMaterial({ color: '#f6f1e8', roughness: 0.5, sheen: 1, sheenRoughness: 0.35, sheenColor: new THREE.Color('#ffffff'), side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    this.root.add(mesh);
+    const hipsY = this._rel(this.bones.pelvis).y;
+    const top = hem * MODELS[this.kind].height + 0.06; // tuck under the dress
+    this.gown = { mesh, geo, N, M, drop: hipsY - top, r: new Float32Array(M), prev: new Float32Array(M), hem: null, flare: 0, lastRot: 0, lastT: 0 };
+    this.restHipsQ = this._relQ(this.bones.pelvis, new THREE.Quaternion());
+  }
+
+  _updateGown() {
+    const G = this.gown;
+    const B = this.bones;
+    const now = performance.now() / 1000;
+    const dt = G.lastT ? Math.min(0.1, Math.max(0.001, now - G.lastT)) : 1 / 60;
+    G.lastT = now;
+    const rot = this.root.rotation.y;
+    const omega = G.hem ? Math.min(20, Math.abs(rot - G.lastRot) / dt) : 0;
+    G.lastRot = rot;
+    G.flare += (Math.min(0.32, omega * 0.03) - G.flare) * (1 - Math.exp(-dt * 4));
+
+    // the top ring hangs from the hips (follows their tilt); lower rings fall straight down
+    const hips = this._rel(B.pelvis);
+    const hq = this._relQ(B.pelvis, new THREE.Quaternion()).multiply(_q.copy(this.restHipsQ).invert());
+    const down = new THREE.Vector3(0, -1, 0).applyQuaternion(hq);
+    const topC = hips.clone().addScaledVector(down, G.drop);
+    const samples = [];
+    for (const side of ['L', 'R']) {
+      const pts = [B['hip' + side], B['knee' + side], B['ankle' + side], B['toe' + side]].filter(Boolean).map((b) => this._rel(b));
+      for (let k = 0; k < pts.length - 1; k++) for (let t = 0; t < 1; t += 0.2) samples.push(pts[k].clone().lerp(pts[k + 1], t));
+      samples.push(pts[pts.length - 1]);
+    }
+    const ank = this._rel(B.ankleL).add(this._rel(B.ankleR)).multiplyScalar(0.5);
+    const target = topC.clone().lerp(ank, 0.55);
+    if (!G.hem) G.hem = target.clone();
+    else G.hem.lerp(target, 1 - Math.exp(-dt * 9));
+    const length = MODELS[this.kind].gown.hem * MODELS[this.kind].height + 0.06;
+    const hemY = Math.max(0.015 + G.flare * 0.35, topC.y - length + G.flare * 0.2);
+    const { N, M, r, prev } = G;
+    const pos = G.geo.attributes.position.array;
+    for (let i = 0; i < N; i++) {
+      const s = i / (N - 1);
+      const y = topC.y + (hemY - topC.y) * s;
+      const cx = topC.x + (G.hem.x - topC.x) * s;
+      const cz = topC.z + (G.hem.z - topC.z) * s;
+      const flare = 1 + G.flare * 2.2 * Math.pow(s, 1.4);
+      for (let j = 0; j < M; j++) {
+        const th = (2 * Math.PI * j) / M;
+        const dx = Math.cos(th);
+        const dz = Math.sin(th);
+        let rr = (0.15 + 0.17 * Math.pow(s, 1.1)) * (dz > 0 ? 0.92 : 0.96) * flare;
+        for (const q of samples) {
+          if (Math.abs(q.y - y) > 0.08) continue;
+          const ox = q.x - cx;
+          const oz = q.z - cz;
+          const along = ox * dx + oz * dz;
+          const perp = Math.abs(ox * dz - oz * dx);
+          if (along > 0 && perp < 0.12) {
+            const need = Math.min(0.5, along + 0.075);
+            if (need > rr) rr += (need - rr) * (1 - perp / 0.12);
+          }
+        }
+        if (i > 0) rr = Math.max(rr, rr + (prev[j] - rr) * 0.85);
+        r[j] = rr;
+      }
+      for (let j = 0; j < M; j++) prev[j] = (r[(j + M - 1) % M] + 2 * r[j] + r[(j + 1) % M]) / 4;
+      for (let j = 0; j < M; j++) {
+        const th = (2 * Math.PI * j) / M;
+        let px = cx + prev[j] * Math.cos(th);
+        let py = y;
+        let pz = cz + prev[j] * Math.sin(th);
+        if (i < 4) {
+          // blend the first rings from the hips' frame so the waist of the skirt tilts with her
+          const w = i / 4;
+          _v.set(prev[j] * Math.cos(th), 0, prev[j] * Math.sin(th)).applyQuaternion(hq).add(topC).addScaledVector(down, (topC.y - y) / Math.max(0.2, -down.y));
+          px = _v.x + (px - _v.x) * w;
+          py = _v.y + (py - _v.y) * w;
+          pz = _v.z + (pz - _v.z) * w;
+        }
+        pos.set([px, Math.max(0.012, py), pz], (i * M + j) * 3);
+      }
+    }
+    G.geo.attributes.position.needsUpdate = true;
+    G.geo.computeVertexNormals();
+  }
 
   setPose(p) {
     const d = this.driver;
@@ -202,10 +305,15 @@ export class ModelDancer {
       this.model.position.y = this.baseY + (-min + (p.root.lift || 0) * this.k) * (1 - air);
       this.root.updateMatrixWorld(true);
     }
+    if (this.gown) this._updateGown();
   }
 
   dispose() {
     if (this.label) this.label.material.map.dispose();
+    if (this.gown) {
+      this.gown.geo.dispose();
+      this.gown.mesh.material.dispose();
+    }
     // geometry and textures are shared with the cached glTF, so they stay loaded for the next clone
   }
 }
